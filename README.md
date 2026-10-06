@@ -80,3 +80,78 @@ The **Enterprise Complaint Management System** automates the lifecycle of intern
 │   Database: complaints_db                                   │
 │   - Tables: users, complaints, agents                       │
 └─────────────────────────────────────────────────────────────┘
+
+
+enterprise-complaint-management-system/
+├── .ai/
+│   └── mcp/
+│       └── mcp.json                         # Model Context Protocol / AI configs
+├── .github/
+│   └── workflows/
+│       └── deploy.yml                       # CI/CD deployment pipeline
+├── src/
+│   ├── main/
+│   │   ├── java/com/complaint/system/
+│   │   │   ├── controllers/                 # JavaFX UI & Spring REST controllers
+│   │   │   │   ├── AgentController.java
+│   │   │   │   ├── AgentDashboardController.java
+│   │   │   │   ├── AnalyticsController.java
+│   │   │   │   ├── AuthController.java
+│   │   │   │   ├── ComplaintController.java
+│   │   │   │   ├── ComplaintRestController.java
+│   │   │   │   ├── HistoryController.java
+│   │   │   │   ├── LoginController.java
+│   │   │   │   ├── RegisterController.java
+│   │   │   │   └── UserController.java
+│   │   │   ├── dao/                         # Data Access Objects & JDBC implementations
+│   │   │   │   ├── AgentDAO.java
+│   │   │   │   ├── AgentDAOImpl.java
+│   │   │   │   ├── ComplaintDAO.java
+│   │   │   │   ├── ComplaintDAOImpl.java
+│   │   │   │   ├── UserDAO.java
+│   │   │   │   └── UserDAOImpl.java
+│   │   │   ├── dto/                         # Data Transfer Objects
+│   │   │   │   ├── ComplaintDTO.java
+│   │   │   │   ├── LoginRequest.java
+│   │   │   │   └── LoginResponse.java
+│   │   │   ├── model/                       # Domain models & Department polymorphism
+│   │   │   │   ├── Agent.java
+│   │   │   │   ├── Complaint.java
+│   │   │   │   ├── Department.java
+│   │   │   │   ├── FinanceDepartment.java
+│   │   │   │   ├── LogisticsDepartment.java
+│   │   │   │   ├── TechnicalDepartment.java
+│   │   │   │   └── User.java
+│   │   │   ├── service/                     # Business logic & classification triage
+│   │   │   │   ├── AgentService.java
+│   │   │   │   ├── ClassificationEngine.java
+│   │   │   │   ├── ComplaintService.java
+│   │   │   │   ├── ResolutionManager.java
+│   │   │   │   └── UserService.java
+│   │   │   ├── util/                        # Helpers, networking & database connections
+│   │   │   │   ├── ApiClient.java
+│   │   │   │   ├── ComplaintApp.java
+│   │   │   │   ├── DBConnection.java
+│   │   │   │   ├── FileLogger.java
+│   │   │   │   └── Session.java
+│   │   │   ├── BackendApplication.java      # Spring Boot application entry point
+│   │   │   ├── ClientApp.java               # JavaFX client lifecycle manager
+│   │   │   └── Launcher.java                # Main bootstrap executable
+│   │   └── resources/                       # JavaFX FXML layouts, styling & config
+│   │       ├── agent_dashboard.fxml
+│   │       ├── analytics.fxml
+│   │       ├── application.properties       # Spring & RDS MySQL datasource config
+│   │       ├── dashboard.fxml
+│   │       ├── history.fxml
+│   │       ├── login.fxml
+│   │       ├── register.fxml
+│   │       ├── schema.sql
+│   │       └── styles.css
+│   └── test/
+│       └── java/com/complaint/system/service/
+│           └── ComplaintServiceTest.java    # Automated unit tests
+├── .gitignore
+├── Dockerfile                               # Cloud Run containerization
+├── pom.xml                                  # Maven dependencies & build lifecycle
+└── README.md                                # Project documentation
+
