@@ -61,6 +61,77 @@ The platform modernizes enterprise ticket intake and resolution. Incoming user i
 | **AWS RDS MySQL 8.0** | Cloud relational database instance (`ap-south-1`) |
 | **Schema Name** | `complaints_db` |
 
+
+## Project Architecture & Routing## Project Architecture & Routing
+
+┌────────────────────────────────────────────────────────┐
+│             Web Client (React 18 + Vite)               │
+│   - Live Input Monitoring & Heuristic Triage           │
+│   - In-Browser Voice Recording (Web Audio API)         │
+│   - Attachment Base64 Serialization                    │
+└───────────────────────────┬────────────────────────────┘
+│ HTTPS / JSON
+▼
+┌────────────────────────────────────────────────────────┐
+│          Google Cloud Run (Node.js & Express)          │
+│   - REST API Controller (/api/complaints)              │
+│   - Fallback Sanitization & Default Injection          │
+│   - SLA Priority Tier Evaluator                        │
+└───────────────────────────┬────────────────────────────┘
+│ MySQL Wire Protocol (Port 3306)
+▼
+┌────────────────────────────────────────────────────────┐
+│               AWS RDS MySQL 8.0 Instance               │
+│   Endpoint: complaints-db.czoe06ig4twu.ap-south-1...   │
+│   - Database: complaints_db                            │
+│   - Tables: users, complaints                          │
+└────────────────────────────────────────────────────────┘
+
+
+### Department Assignment Matrix
+
+| Trigger Domain / Keywords | Predicted Department | Category | Default Agent |
+| :--- | :--- | :--- | :--- |
+| Server, virus, system, crash, hardware, bug | **Technical Support** | Technical | Alex Rivera (`#AGT-TECH-01`) |
+| Salary, refund, billing, payment, payroll | **Finance & Payroll** | Billing | Dedicated Billing Desk |
+| Delivery, courier, package, tracking, transit | **Logistics** | Logistics | Marcus Vance (`#AGT-LOG-01`) |
+| Account, access, water supply, general inquiry | **Customer Care** | General Inquiry | Sarah Jenkins (`#AGT-CARE-01`) |
+
 ---
+
+## Database Schema
+
+Primary operational schema: `complaints_db`
+
+```sql
+CREATE TABLE complaints_db.complaints (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT DEFAULT 1,
+    customer_id INT DEFAULT 1,
+    description TEXT NOT NULL,
+    category VARCHAR(100) DEFAULT 'General Inquiry',
+    department VARCHAR(100) DEFAULT 'Customer Care',
+    priority VARCHAR(50) DEFAULT 'LOW',
+    status VARCHAR(50) DEFAULT 'OPEN',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    notes TEXT NULL,
+    agent_notes TEXT NULL,
+    agent_id VARCHAR(50) NULL,
+    agent_name VARCHAR(255) NULL,
+    attachments TEXT NULL,
+    voice_note TEXT NULL
+);
+
+CREATE TABLE complaints_db.users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    full_name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password VARCHAR(255) NOT NULL,
+    phone VARCHAR(50) NULL,
+    role VARCHAR(50) DEFAULT 'CUSTOMER',
+    department VARCHAR(100) NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+API Endpoints
 
 ## Project Architecture & Routing
