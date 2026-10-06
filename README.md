@@ -87,51 +87,80 @@ The platform modernizes enterprise ticket intake and resolution. Incoming user i
 │   - Tables: users, complaints                          │
 └────────────────────────────────────────────────────────┘
 
+## 📁 Project Structure
 
-### Department Assignment Matrix
-
-| Trigger Domain / Keywords | Predicted Department | Category | Default Agent |
-| :--- | :--- | :--- | :--- |
-| Server, virus, system, crash, hardware, bug | **Technical Support** | Technical | Alex Rivera (`#AGT-TECH-01`) |
-| Salary, refund, billing, payment, payroll | **Finance & Payroll** | Billing | Dedicated Billing Desk |
-| Delivery, courier, package, tracking, transit | **Logistics** | Logistics | Marcus Vance (`#AGT-LOG-01`) |
-| Account, access, water supply, general inquiry | **Customer Care** | General Inquiry | Sarah Jenkins (`#AGT-CARE-01`) |
-
----
-
-## Database Schema
-
-Primary operational schema: `complaints_db`
-
-```sql
-CREATE TABLE complaints_db.complaints (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT DEFAULT 1,
-    customer_id INT DEFAULT 1,
-    description TEXT NOT NULL,
-    category VARCHAR(100) DEFAULT 'General Inquiry',
-    department VARCHAR(100) DEFAULT 'Customer Care',
-    priority VARCHAR(50) DEFAULT 'LOW',
-    status VARCHAR(50) DEFAULT 'OPEN',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    notes TEXT NULL,
-    agent_notes TEXT NULL,
-    agent_id VARCHAR(50) NULL,
-    agent_name VARCHAR(255) NULL,
-    attachments TEXT NULL,
-    voice_note TEXT NULL
-);
-
-CREATE TABLE complaints_db.users (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    full_name VARCHAR(255) NOT NULL,
-    email VARCHAR(255) UNIQUE NOT NULL,
-    password VARCHAR(255) NOT NULL,
-    phone VARCHAR(50) NULL,
-    role VARCHAR(50) DEFAULT 'CUSTOMER',
-    department VARCHAR(100) NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-API Endpoints
+```text
+enterprise-complaint-management-system/
+├── .ai/
+│   └── mcp/
+│       └── mcp.json                         # Model Context Protocol / AI configs
+├── .github/
+│   └── workflows/
+│       └── deploy.yml                       # CI/CD pipeline definition
+├── src/
+│   ├── main/
+│   │   ├── java/com/complaint/system/
+│   │   │   ├── controllers/                 # JavaFX UI & Spring REST controllers
+│   │   │   │   ├── AgentController.java
+│   │   │   │   ├── AgentDashboardController.java
+│   │   │   │   ├── AnalyticsController.java
+│   │   │   │   ├── AuthController.java
+│   │   │   │   ├── ComplaintController.java
+│   │   │   │   ├── ComplaintRestController.java
+│   │   │   │   ├── HistoryController.java
+│   │   │   │   ├── LoginController.java
+│   │   │   │   ├── RegisterController.java
+│   │   │   │   └── UserController.java
+│   │   │   ├── dao/                         # Data Access Objects & JDBC implementations
+│   │   │   │   ├── AgentDAO.java
+│   │   │   │   ├── AgentDAOImpl.java
+│   │   │   │   ├── ComplaintDAO.java
+│   │   │   │   ├── ComplaintDAOImpl.java
+│   │   │   │   ├── UserDAO.java
+│   │   │   └── └── UserDAOImpl.java
+│   │   │   ├── dto/                         # Data Transfer Objects
+│   │   │   │   ├── ComplaintDTO.java
+│   │   │   │   ├── LoginRequest.java
+│   │   │   │   └── LoginResponse.java
+│   │   │   ├── model/                       # Domain models & Department polymorphism
+│   │   │   │   ├── Agent.java
+│   │   │   │   ├── Complaint.java
+│   │   │   │   ├── Department.java
+│   │   │   │   ├── FinanceDepartment.java
+│   │   │   │   ├── LogisticsDepartment.java
+│   │   │   │   ├── TechnicalDepartment.java
+│   │   │   │   └── User.java
+│   │   │   ├── service/                     # Business logic & classification triage
+│   │   │   │   ├── AgentService.java
+│   │   │   │   ├── ClassificationEngine.java
+│   │   │   │   ├── ComplaintService.java
+│   │   │   │   ├── ResolutionManager.java
+│   │   │   │   └── UserService.java
+│   │   │   ├── util/                        # Helpers, networking & database connections
+│   │   │   │   ├── ApiClient.java
+│   │   │   │   ├── ComplaintApp.java
+│   │   │   │   ├── DBConnection.java
+│   │   │   │   ├── FileLogger.java
+│   │   │   │   └── Session.java
+│   │   │   ├── BackendApplication.java      # Spring Boot application entry point
+│   │   │   ├── ClientApp.java               # JavaFX client lifecycle manager
+│   │   │   └── Launcher.java                # Main bootstrap executable
+│   │   └── resources/                       # JavaFX FXML layouts, styling & DB schema
+│   │       ├── agent_dashboard.fxml
+│   │       ├── analytics.fxml
+│   │       ├── application.properties       # Spring & RDS MySQL datasource config
+│   │       ├── dashboard.fxml
+│   │       ├── history.fxml
+│   │       ├── login.fxml
+│   │       ├── register.fxml
+│   │       ├── schema.sql
+│   │       └── styles.css
+│   └── test/
+│       └── java/com/complaint/system/service/
+│           └── ComplaintServiceTest.java    # Automated unit tests
+├── .gitignore
+├── Dockerfile                               # Cloud Run containerization
+├── pom.xml                                  # Maven dependencies & build lifecycle
+└── README.md                                # Project documentation
 
 ## Project Architecture & Routing
