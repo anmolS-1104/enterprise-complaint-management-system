@@ -1,88 +1,80 @@
 import React, { useState } from 'react';
-import { AppUser, AuthValidationResult, CompanyCMSState } from '../types/icrs';
+import { AppUser, CompanyCMSAuditSchema } from '../types/icrs';
 import {
   Shield,
   User,
-  Lock,
-  ArrowRight,
-  CheckCircle2,
   AlertCircle,
   Building2,
-  Sparkles,
   Phone,
   Mail,
   KeyRound,
   Code,
   Copy,
   Check,
-  Server,
-  Layers,
+  CheckCircle2,
+  Lock,
 } from 'lucide-react';
 
 interface CompanyCMSFrontPageProps {
   onLoginSuccess: (user: AppUser) => void;
-  onUpdateStateSchema?: (state: CompanyCMSState) => void;
+  onAuditChange?: (audit: CompanyCMSAuditSchema) => void;
 }
 
-const WHITELISTED_DOMAINS = [
-  '@client.com domain',
-  'customer@client.com',
-  'client@client.com',
-  'anmol.client@gmail.com',
-  'client.acme@gmail.com',
-  'client.bmc@gmail.com',
-  'client@acmecorp.com',
+// 1. STRICT DATABASE WHITELIST (EXACT 6 CUSTOMER ACCOUNTS)
+export const STRICT_AUTHORIZED_CUSTOMERS = [
+  { name: 'Anmol', email: 'anmol.client@gmail.com', phone: '1234567891' },
+  { name: 'Acme', email: 'client.acme@gmail.com', phone: '1234567891' },
+  { name: 'BMC', email: 'client.bmc@gmail.com', phone: '1234567891' },
+  { name: 'Sam', email: 'client@acmecorp.com', phone: '1234567891' },
+  { name: 'Standard Customer', email: 'customer@client.com', phone: '9876543210' },
+  { name: 'Enterprise Client', email: 'client@client.com', phone: '9876543211' },
 ];
 
-const PRE_PROVISIONED_AGENTS = [
+// 2. PRE-PROVISIONED SUPPORT AGENT DESKS (NO REGISTRATION)
+export const PRE_PROVISIONED_AGENTS = [
   {
     email: 'finance@agent.company.com',
     name: 'Elena Vance',
     department: 'Finance & Payroll' as const,
     agentId: '#AGT-FIN-01' as const,
-    description: 'Corporate billing, ERP expense sync, payroll disputes',
   },
   {
     email: 'tech@agent.company.com',
     name: 'Alex Rivera',
     department: 'Technical Support' as const,
     agentId: '#AGT-TECH-01' as const,
-    description: 'Cloud outage, database replication, 502/504 gateway failures',
   },
   {
     email: 'care@agent.company.com',
     name: 'Sarah Jenkins',
     department: 'Customer Care' as const,
     agentId: '#AGT-CARE-01' as const,
-    description: 'DWP portal onboarding, executive escalations, SLA tracking',
   },
   {
     email: 'logistics@agent.company.com',
     name: 'Marcus Vance',
     department: 'Logistics Desk' as const,
     agentId: '#AGT-LOG-01' as const,
-    description: 'Hardware asset dispatch, damaged transit, dock replacements',
   },
 ];
 
 export const CompanyCMSFrontPage: React.FC<CompanyCMSFrontPageProps> = ({
   onLoginSuccess,
-  onUpdateStateSchema,
+  onAuditChange,
 }) => {
   // Pill switcher: [👤 Customer Portal] and [🏛 Support Agent]
   const [activeTab, setActiveTab] = useState<'CUSTOMER' | 'AGENT'>('CUSTOMER');
   const [customerSubView, setCustomerSubView] = useState<'LOGIN' | 'REGISTER'>('LOGIN');
 
-  // Customer Form State
-  const [clientEmail, setClientEmail] = useState('customer@client.com');
-  const [clientPhone, setClientPhone] = useState('9876543210');
-  const [clientPassword, setClientPassword] = useState('Enterprise2026!');
-  const [clientName, setClientName] = useState('David K.');
-  const [clientCompany, setClientCompany] = useState('FinGlobal Technologies');
+  // Customer Form State — STRICT ZERO-AUTOFILL (All text fields initialize strictly empty "")
+  const [clientEmail, setClientEmail] = useState('');
+  const [clientPhone, setClientPhone] = useState('');
+  const [clientPassword, setClientPassword] = useState('');
+  const [clientName, setClientName] = useState('');
 
-  // Agent Form State
-  const [agentEmail, setAgentEmail] = useState('tech@agent.company.com');
-  const [agentPassword, setAgentPassword] = useState('LeadAlexRivera2026');
+  // Agent Form State — STRICT ZERO-AUTOFILL (All text fields initialize strictly empty "")
+  const [agentEmail, setAgentEmail] = useState('');
+  const [agentPassword, setAgentPassword] = useState('');
 
   // Feedback states
   const [isLoading, setIsLoading] = useState(false);
@@ -91,74 +83,40 @@ export const CompanyCMSFrontPage: React.FC<CompanyCMSFrontPageProps> = ({
   const [showJsonInspector, setShowJsonInspector] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // Validation details for the JSON Schema
-  const [currentValidation, setCurrentValidation] = useState<{
-    status: 'APPROVED' | 'REJECTED';
-    reason: string;
-    role: 'CORPORATE_CLIENT' | 'SUPPORT_AGENT' | 'UNAUTHORIZED';
-    assigned_desk: {
-      desk_name: 'Finance & Payroll' | 'Technical Support' | 'Customer Care' | 'Logistics Desk' | 'NONE';
-      desk_lead: 'Elena Vance' | 'Alex Rivera' | 'Sarah Jenkins' | 'Marcus Vance' | 'NONE';
-      agent_id: '#AGT-FIN-01' | '#AGT-TECH-01' | '#AGT-CARE-01' | '#AGT-LOG-01' | 'NONE';
-    };
-  }>({
-    status: 'APPROVED',
-    reason: 'Initial front-page state ready for credential verification',
-    role: 'UNAUTHORIZED',
-    assigned_desk: {
-      desk_name: 'NONE',
-      desk_lead: 'NONE',
-      agent_id: 'NONE',
+  // 4. JSON AUDIT & TRIAGE OUTPUT SCHEMA (Exact required schema)
+  const [auditSchema, setAuditSchema] = useState<CompanyCMSAuditSchema>({
+    auth_audit: {
+      status: 'APPROVED',
+      authenticated_user: 'NONE',
+      user_role: 'UNAUTHORIZED',
+      rejection_reason: 'NONE',
+    },
+    view_access: {
+      rendered_screen: 'AUTH_PORTAL',
+      assigned_desk: 'NONE',
     },
   });
 
-  // Compute the current state schema adhering to the exact required schema
-  const getCurrentStateJson = (): CompanyCMSState => {
-    let activePortal: 'CUSTOMER_SIGN_IN' | 'AGENT_CONSOLE' | 'CUSTOMER_REGISTER' = 'CUSTOMER_SIGN_IN';
-    if (activeTab === 'AGENT') {
-      activePortal = 'AGENT_CONSOLE';
-    } else if (customerSubView === 'REGISTER') {
-      activePortal = 'CUSTOMER_REGISTER';
+  const updateAudit = (newAudit: CompanyCMSAuditSchema) => {
+    setAuditSchema(newAudit);
+    if (onAuditChange) {
+      onAuditChange(newAudit);
     }
-
-    return {
-      ui_state: {
-        active_portal: activePortal,
-        theme: 'COMPANY_CMS_TEAL_DARK',
-        rendered_view: 'LANDING_PORTAL',
-        authenticated_user: 'NONE',
-      },
-      auth_validation: currentValidation,
-      triage_result: {
-        nlp_detected_category: 'PENDING_SUBMISSION',
-        itil_priority: 'NONE',
-        recommended_action: 'Awaiting customer submission of raw incident complaint',
-        customer_notification: 'Session not established. Please sign in to submit a complaint.',
-      },
-    };
   };
 
   const handleCopyJson = () => {
-    navigator.clipboard.writeText(JSON.stringify(getCurrentStateJson(), null, 2));
+    navigator.clipboard.writeText(JSON.stringify(auditSchema, null, 2));
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // Switch pill selector
   const handleSelectTab = (tab: 'CUSTOMER' | 'AGENT') => {
     setActiveTab(tab);
     setErrorMessage(null);
     setSuccessMessage(null);
   };
 
-  // Quick fill pre-provisioned agent
-  const handleSelectAgent = (agent: (typeof PRE_PROVISIONED_AGENTS)[0]) => {
-    setAgentEmail(agent.email);
-    setAgentPassword(`Lead${agent.name.replace(/\s+/g, '')}2026`);
-    setErrorMessage(null);
-  };
-
-  // Submit Customer Login or Registration
+  // Customer Login / Registration validation & submission
   const handleCustomerSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -166,47 +124,79 @@ export const CompanyCMSFrontPage: React.FC<CompanyCMSFrontPageProps> = ({
     setSuccessMessage(null);
 
     const emailNorm = clientEmail.trim().toLowerCase();
-    const isAllowedDomain =
-      emailNorm.endsWith('@client.com') ||
-      WHITELISTED_DOMAINS.map((w) => w.toLowerCase()).includes(emailNorm);
 
-    // If client attempts to register
+    // REGISTRATION FLOW
     if (customerSubView === 'REGISTER') {
-      if (!isAllowedDomain) {
-        const errorReason = `Corporate email restriction violation. Allowed domains must end in '@client.com' or match explicit whitelist: ${WHITELISTED_DOMAINS.join(', ')}.`;
+      // 1. Support Agent Registration Ban
+      if (
+        emailNorm.includes('agent.company.com') ||
+        PRE_PROVISIONED_AGENTS.some((a) => a.email.toLowerCase() === emailNorm)
+      ) {
+        const errorReason = 'Registration prohibited for Support Agent credentials.';
         setErrorMessage(errorReason);
-        setCurrentValidation({
-          status: 'REJECTED',
-          reason: errorReason,
-          role: 'UNAUTHORIZED',
-          assigned_desk: { desk_name: 'NONE', desk_lead: 'NONE', agent_id: 'NONE' },
+        updateAudit({
+          auth_audit: {
+            status: 'REJECTED',
+            authenticated_user: 'NONE',
+            user_role: 'UNAUTHORIZED',
+            rejection_reason: errorReason,
+          },
+          view_access: {
+            rendered_screen: 'AUTH_PORTAL',
+            assigned_desk: 'NONE',
+          },
         });
         setIsLoading(false);
         return;
       }
 
+      // 2. Compulsory Fields & Format Check (Full Name, Corporate Email, 10-Digit Phone, Password >= 6)
       const digits = clientPhone.replace(/\D/g, '');
-      if (digits.length !== 10) {
-        const errorReason = 'Contact verification failed: Exactly 10 numeric digits required for corporate clients.';
+      if (
+        !clientName.trim() ||
+        !clientEmail.trim() ||
+        !clientPhone.trim() ||
+        !clientPassword.trim() ||
+        digits.length !== 10 ||
+        clientPassword.length < 6
+      ) {
+        const errorReason =
+          'Security Violation: All fields are compulsory. Phone must be 10 digits and password >= 6 characters.';
         setErrorMessage(errorReason);
-        setCurrentValidation({
-          status: 'REJECTED',
-          reason: errorReason,
-          role: 'UNAUTHORIZED',
-          assigned_desk: { desk_name: 'NONE', desk_lead: 'NONE', agent_id: 'NONE' },
+        updateAudit({
+          auth_audit: {
+            status: 'REJECTED',
+            authenticated_user: 'NONE',
+            user_role: 'UNAUTHORIZED',
+            rejection_reason: errorReason,
+          },
+          view_access: {
+            rendered_screen: 'AUTH_PORTAL',
+            assigned_desk: 'NONE',
+          },
         });
         setIsLoading(false);
         return;
       }
 
-      if (clientPassword.length < 6) {
-        const errorReason = 'Password policy violation: Password must be at least 6 characters.';
+      // 3. Strict Database Whitelist Enforcement (EXACT 6 CUSTOMER ACCOUNTS ONLY - No wildcards)
+      const isWhitelisted = STRICT_AUTHORIZED_CUSTOMERS.some(
+        (c) => c.email.toLowerCase() === emailNorm
+      );
+      if (!isWhitelisted) {
+        const errorReason = 'ACCESS_DENIED: User not on the corporate authorized roster.';
         setErrorMessage(errorReason);
-        setCurrentValidation({
-          status: 'REJECTED',
-          reason: errorReason,
-          role: 'UNAUTHORIZED',
-          assigned_desk: { desk_name: 'NONE', desk_lead: 'NONE', agent_id: 'NONE' },
+        updateAudit({
+          auth_audit: {
+            status: 'REJECTED',
+            authenticated_user: 'NONE',
+            user_role: 'UNAUTHORIZED',
+            rejection_reason: errorReason,
+          },
+          view_access: {
+            rendered_screen: 'AUTH_PORTAL',
+            assigned_desk: 'NONE',
+          },
         });
         setIsLoading(false);
         return;
@@ -221,29 +211,42 @@ export const CompanyCMSFrontPage: React.FC<CompanyCMSFrontPageProps> = ({
             email: clientEmail,
             phone: clientPhone,
             password: clientPassword,
-            company: clientCompany,
+            company: 'Corporate Client',
             role: 'CLIENT',
           }),
         });
         const regData = await regRes.json();
         if (regRes.ok && regData.success) {
-          setSuccessMessage('Registration approved! Logging into Customer Complaint Box...');
-          setCurrentValidation({
-            status: 'APPROVED',
-            reason: 'Corporate Client registration verified and approved.',
-            role: 'CORPORATE_CLIENT',
-            assigned_desk: { desk_name: 'NONE', desk_lead: 'NONE', agent_id: 'NONE' },
+          setSuccessMessage('Registration approved! Unlocking Customer Complaint Submission Box...');
+          updateAudit({
+            auth_audit: {
+              status: 'APPROVED',
+              authenticated_user: emailNorm,
+              user_role: 'CUSTOMER',
+              rejection_reason: 'NONE',
+            },
+            view_access: {
+              rendered_screen: 'CLIENT_COMPLAINT_BOX',
+              assigned_desk: 'NONE',
+            },
           });
           setTimeout(() => {
             onLoginSuccess(regData.user);
-          }, 600);
+          }, 500);
         } else {
-          setErrorMessage(regData.error || 'Registration failed');
-          setCurrentValidation({
-            status: 'REJECTED',
-            reason: regData.error || 'Registration rejected',
-            role: 'UNAUTHORIZED',
-            assigned_desk: { desk_name: 'NONE', desk_lead: 'NONE', agent_id: 'NONE' },
+          const failReason = regData.error || 'ACCESS_DENIED: User not on the corporate authorized roster.';
+          setErrorMessage(failReason);
+          updateAudit({
+            auth_audit: {
+              status: 'REJECTED',
+              authenticated_user: 'NONE',
+              user_role: 'UNAUTHORIZED',
+              rejection_reason: failReason,
+            },
+            view_access: {
+              rendered_screen: 'AUTH_PORTAL',
+              assigned_desk: 'NONE',
+            },
           });
         }
       } catch (err: any) {
@@ -254,28 +257,45 @@ export const CompanyCMSFrontPage: React.FC<CompanyCMSFrontPageProps> = ({
       return;
     }
 
-    // Customer Login
-    if (!isAllowedDomain) {
-      const errorReason = `Corporate email restriction violation. Allowed domains must end in '@client.com' or match explicit whitelist: ${WHITELISTED_DOMAINS.join(', ')}.`;
+    // CUSTOMER LOGIN FLOW
+    // 1. Strict Database Whitelist Check
+    const isWhitelisted = STRICT_AUTHORIZED_CUSTOMERS.some(
+      (c) => c.email.toLowerCase() === emailNorm
+    );
+    if (!isWhitelisted) {
+      const errorReason = 'ACCESS_DENIED: User not on the corporate authorized roster.';
       setErrorMessage(errorReason);
-      setCurrentValidation({
-        status: 'REJECTED',
-        reason: errorReason,
-        role: 'UNAUTHORIZED',
-        assigned_desk: { desk_name: 'NONE', desk_lead: 'NONE', agent_id: 'NONE' },
+      updateAudit({
+        auth_audit: {
+          status: 'REJECTED',
+          authenticated_user: 'NONE',
+          user_role: 'UNAUTHORIZED',
+          rejection_reason: errorReason,
+        },
+        view_access: {
+          rendered_screen: 'AUTH_PORTAL',
+          assigned_desk: 'NONE',
+        },
       });
       setIsLoading(false);
       return;
     }
 
+    // 2. Password minimum 6 characters
     if (clientPassword.length < 6) {
-      const errorReason = 'Password policy violation: Minimum 6 characters required.';
+      const errorReason = 'Validation Error: Password must be at least 6 characters long.';
       setErrorMessage(errorReason);
-      setCurrentValidation({
-        status: 'REJECTED',
-        reason: errorReason,
-        role: 'UNAUTHORIZED',
-        assigned_desk: { desk_name: 'NONE', desk_lead: 'NONE', agent_id: 'NONE' },
+      updateAudit({
+        auth_audit: {
+          status: 'REJECTED',
+          authenticated_user: 'NONE',
+          user_role: 'UNAUTHORIZED',
+          rejection_reason: errorReason,
+        },
+        view_access: {
+          rendered_screen: 'AUTH_PORTAL',
+          assigned_desk: 'NONE',
+        },
       });
       setIsLoading(false);
       return;
@@ -293,23 +313,36 @@ export const CompanyCMSFrontPage: React.FC<CompanyCMSFrontPageProps> = ({
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        setSuccessMessage('Authentication Approved. Redirecting to Customer Complaint Box...');
-        setCurrentValidation({
-          status: 'APPROVED',
-          reason: 'Corporate client authentication verified. Access granted to Client Resolution Portal.',
-          role: 'CORPORATE_CLIENT',
-          assigned_desk: { desk_name: 'NONE', desk_lead: 'NONE', agent_id: 'NONE' },
+        setSuccessMessage('Authentication Approved. Unlocking Customer Complaint Submission Box...');
+        updateAudit({
+          auth_audit: {
+            status: 'APPROVED',
+            authenticated_user: emailNorm,
+            user_role: 'CUSTOMER',
+            rejection_reason: 'NONE',
+          },
+          view_access: {
+            rendered_screen: 'CLIENT_COMPLAINT_BOX',
+            assigned_desk: 'NONE',
+          },
         });
         setTimeout(() => {
           onLoginSuccess(data.user);
         }, 500);
       } else {
-        setErrorMessage(data.error || 'Authentication rejected: Registration required before login.');
-        setCurrentValidation({
-          status: 'REJECTED',
-          reason: data.error || 'Client account not found. Please register first.',
-          role: 'UNAUTHORIZED',
-          assigned_desk: { desk_name: 'NONE', desk_lead: 'NONE', agent_id: 'NONE' },
+        const failReason = data.error || 'ACCESS_DENIED: User not on the corporate authorized roster.';
+        setErrorMessage(failReason);
+        updateAudit({
+          auth_audit: {
+            status: 'REJECTED',
+            authenticated_user: 'NONE',
+            user_role: 'UNAUTHORIZED',
+            rejection_reason: failReason,
+          },
+          view_access: {
+            rendered_screen: 'AUTH_PORTAL',
+            assigned_desk: 'NONE',
+          },
         });
       }
     } catch (err: any) {
@@ -319,7 +352,7 @@ export const CompanyCMSFrontPage: React.FC<CompanyCMSFrontPageProps> = ({
     }
   };
 
-  // Submit Agent Login (PRE-PROVISIONED ONLY)
+  // Support Agent Login (PRE-PROVISIONED ONLY)
   const handleAgentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -330,26 +363,39 @@ export const CompanyCMSFrontPage: React.FC<CompanyCMSFrontPageProps> = ({
     const matchedAgent = PRE_PROVISIONED_AGENTS.find((a) => a.email.toLowerCase() === emailNorm);
 
     if (!matchedAgent) {
-      const errorReason = 'Access Denied: Support Agents are strictly pre-provisioned. Unauthorized operator credentials.';
+      const errorReason =
+        'ACCESS_DENIED: Unrecognized support agent credentials. Only pre-provisioned desk leads may log in.';
       setErrorMessage(errorReason);
-      setCurrentValidation({
-        status: 'REJECTED',
-        reason: errorReason,
-        role: 'UNAUTHORIZED',
-        assigned_desk: { desk_name: 'NONE', desk_lead: 'NONE', agent_id: 'NONE' },
+      updateAudit({
+        auth_audit: {
+          status: 'REJECTED',
+          authenticated_user: 'NONE',
+          user_role: 'UNAUTHORIZED',
+          rejection_reason: errorReason,
+        },
+        view_access: {
+          rendered_screen: 'AUTH_PORTAL',
+          assigned_desk: 'NONE',
+        },
       });
       setIsLoading(false);
       return;
     }
 
     if (agentPassword.length < 6) {
-      const errorReason = 'Password security violation: Minimum 6 characters required.';
+      const errorReason = 'Validation Error: Password must be at least 6 characters long.';
       setErrorMessage(errorReason);
-      setCurrentValidation({
-        status: 'REJECTED',
-        reason: errorReason,
-        role: 'UNAUTHORIZED',
-        assigned_desk: { desk_name: 'NONE', desk_lead: 'NONE', agent_id: 'NONE' },
+      updateAudit({
+        auth_audit: {
+          status: 'REJECTED',
+          authenticated_user: 'NONE',
+          user_role: 'UNAUTHORIZED',
+          rejection_reason: errorReason,
+        },
+        view_access: {
+          rendered_screen: 'AUTH_PORTAL',
+          assigned_desk: 'NONE',
+        },
       });
       setIsLoading(false);
       return;
@@ -367,27 +413,38 @@ export const CompanyCMSFrontPage: React.FC<CompanyCMSFrontPageProps> = ({
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        setSuccessMessage(`Authenticated as ${matchedAgent.name} (${matchedAgent.department} · ${matchedAgent.agentId}). Unlocking Triage Inbox...`);
-        setCurrentValidation({
-          status: 'APPROVED',
-          reason: `Support Agent authenticated for ${matchedAgent.department}. Operator: ${matchedAgent.name}`,
-          role: 'SUPPORT_AGENT',
-          assigned_desk: {
-            desk_name: matchedAgent.department,
-            desk_lead: matchedAgent.name as any,
-            agent_id: matchedAgent.agentId,
+        setSuccessMessage(
+          `Authenticated as ${matchedAgent.name} (${matchedAgent.department} · ${matchedAgent.agentId}). Unlocking Support Agent Triage Inbox...`
+        );
+        updateAudit({
+          auth_audit: {
+            status: 'APPROVED',
+            authenticated_user: emailNorm,
+            user_role: 'SUPPORT_AGENT',
+            rejection_reason: 'NONE',
+          },
+          view_access: {
+            rendered_screen: 'AGENT_TRIAGE_INBOX',
+            assigned_desk: matchedAgent.department,
           },
         });
         setTimeout(() => {
           onLoginSuccess(data.user);
         }, 500);
       } else {
-        setErrorMessage(data.error || 'Authentication denied for agent console.');
-        setCurrentValidation({
-          status: 'REJECTED',
-          reason: data.error || 'Agent authentication failed.',
-          role: 'UNAUTHORIZED',
-          assigned_desk: { desk_name: 'NONE', desk_lead: 'NONE', agent_id: 'NONE' },
+        const failReason = data.error || 'ACCESS_DENIED: Agent authentication failed.';
+        setErrorMessage(failReason);
+        updateAudit({
+          auth_audit: {
+            status: 'REJECTED',
+            authenticated_user: 'NONE',
+            user_role: 'UNAUTHORIZED',
+            rejection_reason: failReason,
+          },
+          view_access: {
+            rendered_screen: 'AUTH_PORTAL',
+            assigned_desk: 'NONE',
+          },
         });
       }
     } catch (err: any) {
@@ -399,14 +456,12 @@ export const CompanyCMSFrontPage: React.FC<CompanyCMSFrontPageProps> = ({
 
   return (
     <div className="w-full flex flex-col items-center justify-center py-4">
-      {/* 3. Center Hero Section */}
+      {/* Center Hero Section */}
       <div className="text-center max-w-3xl mx-auto mb-8">
-        {/* Central shield icon badge 🛡 */}
         <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-[#112238] border border-[#1a3454] text-[#4fd1c5] shadow-[0_0_25px_rgba(79,209,197,0.2)] mb-5">
           <Shield className="w-8 h-8 fill-[#4fd1c5]/20 text-[#4fd1c5]" />
         </div>
 
-        {/* Large hero title: "Intelligent Complaint Resolution" with Resolution in Vibrant Teal #4fd1c5 */}
         <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tight leading-tight">
           Intelligent Complaint{' '}
           <span className="text-[#4fd1c5] drop-shadow-[0_0_25px_rgba(79,209,197,0.4)]">
@@ -414,12 +469,11 @@ export const CompanyCMSFrontPage: React.FC<CompanyCMSFrontPageProps> = ({
           </span>
         </h1>
 
-        {/* Subtitle: "Secure multi-department customer and agent service portal" */}
         <p className="mt-3 text-sm sm:text-base text-[#94a3b8] font-medium max-w-xl mx-auto">
-          Secure multi-department customer and agent service portal
+          Zero-Trust Identity, Authentication, and ITIL Gatekeeper for CompanyCMS
         </p>
 
-        {/* 4. Interactive Role Selector (Pill Switcher) */}
+        {/* Interactive Role Selector (Pill Switcher) */}
         <div className="mt-7 inline-flex p-1 rounded-full bg-[#112238] border border-[#1a3454] shadow-[0_0_20px_rgba(0,0,0,0.4)]">
           <button
             type="button"
@@ -446,19 +500,20 @@ export const CompanyCMSFrontPage: React.FC<CompanyCMSFrontPageProps> = ({
         </div>
       </div>
 
-      {/* Main Authentication Card: Slate navy (#112238) with 1px border (#1a3454) and subtle glow */}
+      {/* Main Authentication Card */}
       <div className="w-full max-w-xl bg-[#112238] border border-[#1a3454] rounded-2xl p-6 sm:p-8 shadow-[0_0_35px_rgba(79,209,197,0.06)] relative backdrop-blur-sm">
-        {/* Error and Success Notices */}
+        {/* Error Notice */}
         {errorMessage && (
           <div className="mb-6 p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-200 text-xs sm:text-sm flex items-start gap-3">
             <AlertCircle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
             <div>
-              <p className="font-semibold text-rose-300">Access / Security Violation</p>
-              <p className="mt-0.5 text-rose-200/90 leading-relaxed">{errorMessage}</p>
+              <p className="font-semibold text-rose-300">Authentication / Security Violation</p>
+              <p className="mt-0.5 text-rose-200/90 leading-relaxed font-mono text-xs">{errorMessage}</p>
             </div>
           </div>
         )}
 
+        {/* Success Notice */}
         {successMessage && (
           <div className="mb-6 p-4 rounded-xl bg-[#4fd1c5]/10 border border-[#4fd1c5]/40 text-[#4fd1c5] text-xs sm:text-sm flex items-center gap-3">
             <CheckCircle2 className="w-5 h-5 text-[#4fd1c5] shrink-0" />
@@ -473,12 +528,12 @@ export const CompanyCMSFrontPage: React.FC<CompanyCMSFrontPageProps> = ({
               <div>
                 <h2 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2">
                   <User className="w-5 h-5 text-[#4fd1c5]" />
-                  {customerSubView === 'LOGIN' ? 'Customer Sign In' : 'Register New Account'}
+                  {customerSubView === 'LOGIN' ? 'Customer Sign In' : 'Register Customer Account'}
                 </h2>
                 <p className="text-xs text-[#94a3b8] mt-0.5">
                   {customerSubView === 'LOGIN'
-                    ? 'Verify corporate credentials to access the Customer Complaint Box'
-                    : 'Create corporate client profile with whitelisted domain & 10-digit phone'}
+                    ? 'Authenticate against the authorized 6-profile corporate database roster'
+                    : 'All registration fields are strictly compulsory.'}
                 </p>
               </div>
 
@@ -498,42 +553,31 @@ export const CompanyCMSFrontPage: React.FC<CompanyCMSFrontPageProps> = ({
 
             <form onSubmit={handleCustomerSubmit} className="space-y-4">
               {customerSubView === 'REGISTER' && (
-                <>
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-[#94a3b8] mb-1.5">
-                      Full Name
-                    </label>
-                    <input
-                      type="text"
-                      value={clientName}
-                      onChange={(e) => setClientName(e.target.value)}
-                      placeholder="e.g. David King"
-                      required
-                      className="w-full bg-[#091424] border border-[#1a3454] focus:border-[#4fd1c5] focus:outline-hidden text-white px-3.5 py-2.5 rounded-lg text-sm transition-colors"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-[#94a3b8] mb-1.5">
-                      Organization / Company
-                    </label>
-                    <input
-                      type="text"
-                      value={clientCompany}
-                      onChange={(e) => setClientCompany(e.target.value)}
-                      placeholder="e.g. Acme Corporation"
-                      required
-                      className="w-full bg-[#091424] border border-[#1a3454] focus:border-[#4fd1c5] focus:outline-hidden text-white px-3.5 py-2.5 rounded-lg text-sm transition-colors"
-                    />
-                  </div>
-                </>
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-[#94a3b8] mb-1.5 flex items-center justify-between">
+                    <span>Full Name</span>
+                    <span className="text-[10px] text-amber-400 font-mono">*Compulsory</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={clientName}
+                    onChange={(e) => setClientName(e.target.value)}
+                    placeholder="Full Name"
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="off"
+                    spellCheck={false}
+                    required
+                    className="w-full bg-[#091424] border border-[#1a3454] focus:border-[#4fd1c5] focus:outline-hidden text-white px-3.5 py-2.5 rounded-lg text-sm transition-colors"
+                  />
+                </div>
               )}
 
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-[#94a3b8] mb-1.5 flex items-center justify-between">
                   <span>Corporate Email Address</span>
-                  <span className="text-[10px] text-[#4fd1c5] lowercase font-mono">
-                    @client.com or whitelisted
+                  <span className="text-[10px] text-[#4fd1c5] font-mono">
+                    {customerSubView === 'REGISTER' ? '*Compulsory' : 'Strict Whitelist'}
                   </span>
                 </label>
                 <div className="relative">
@@ -542,9 +586,13 @@ export const CompanyCMSFrontPage: React.FC<CompanyCMSFrontPageProps> = ({
                     type="email"
                     value={clientEmail}
                     onChange={(e) => setClientEmail(e.target.value)}
-                    placeholder="user@client.com"
+                    placeholder="authorized-email@client.com"
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="off"
+                    spellCheck={false}
                     required
-                    className="w-full bg-[#091424] border border-[#1a3454] focus:border-[#4fd1c5] focus:outline-hidden text-white pl-10 pr-3.5 py-2.5 rounded-lg text-sm transition-colors"
+                    className="w-full bg-[#091424] border border-[#1a3454] focus:border-[#4fd1c5] focus:outline-hidden text-white pl-10 pr-3.5 py-2.5 rounded-lg text-sm transition-colors font-mono"
                   />
                 </div>
               </div>
@@ -552,8 +600,8 @@ export const CompanyCMSFrontPage: React.FC<CompanyCMSFrontPageProps> = ({
               {customerSubView === 'REGISTER' && (
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-[#94a3b8] mb-1.5 flex items-center justify-between">
-                    <span>Contact Phone</span>
-                    <span className="text-[10px] text-[#94a3b8] font-mono">Exact 10 digits</span>
+                    <span>10-Digit Contact Phone</span>
+                    <span className="text-[10px] text-amber-400 font-mono">*Compulsory (10 digits)</span>
                   </label>
                   <div className="relative">
                     <Phone className="w-4 h-4 text-[#94a3b8] absolute left-3.5 top-3" />
@@ -561,8 +609,12 @@ export const CompanyCMSFrontPage: React.FC<CompanyCMSFrontPageProps> = ({
                       type="tel"
                       value={clientPhone}
                       onChange={(e) => setClientPhone(e.target.value)}
-                      placeholder="9876543210"
+                      placeholder="10-digit number"
                       maxLength={10}
+                      autoComplete="off"
+                      autoCorrect="off"
+                      autoCapitalize="off"
+                      spellCheck={false}
                       required
                       className="w-full bg-[#091424] border border-[#1a3454] focus:border-[#4fd1c5] focus:outline-hidden text-white pl-10 pr-3.5 py-2.5 rounded-lg text-sm transition-colors font-mono"
                     />
@@ -573,7 +625,9 @@ export const CompanyCMSFrontPage: React.FC<CompanyCMSFrontPageProps> = ({
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-[#94a3b8] mb-1.5 flex items-center justify-between">
                   <span>Password</span>
-                  <span className="text-[10px] text-[#94a3b8] font-mono">Min 6 characters</span>
+                  <span className="text-[10px] text-[#94a3b8] font-mono">
+                    {customerSubView === 'REGISTER' ? '*Compulsory (Min 6 chars)' : 'Min 6 characters'}
+                  </span>
                 </label>
                 <div className="relative">
                   <KeyRound className="w-4 h-4 text-[#94a3b8] absolute left-3.5 top-3" />
@@ -582,6 +636,10 @@ export const CompanyCMSFrontPage: React.FC<CompanyCMSFrontPageProps> = ({
                     value={clientPassword}
                     onChange={(e) => setClientPassword(e.target.value)}
                     placeholder="••••••••"
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="off"
+                    spellCheck={false}
                     required
                     className="w-full bg-[#091424] border border-[#1a3454] focus:border-[#4fd1c5] focus:outline-hidden text-white pl-10 pr-3.5 py-2.5 rounded-lg text-sm transition-colors"
                   />
@@ -594,7 +652,9 @@ export const CompanyCMSFrontPage: React.FC<CompanyCMSFrontPageProps> = ({
                 className="w-full mt-2 bg-[#4fd1c5] hover:bg-[#38b2ac] text-[#091424] font-bold py-3 px-4 rounded-xl text-sm transition-all duration-200 flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(79,209,197,0.3)] disabled:opacity-50 cursor-pointer"
               >
                 <span>
-                  {customerSubView === 'LOGIN' ? 'Sign In as Customer →' : 'Register & Access Portal →'}
+                  {customerSubView === 'LOGIN'
+                    ? 'Verify & Enter Customer Complaint Box →'
+                    : 'Register & Access Customer Complaint Box →'}
                 </span>
               </button>
 
@@ -605,38 +665,31 @@ export const CompanyCMSFrontPage: React.FC<CompanyCMSFrontPageProps> = ({
                     onClick={() => setCustomerSubView('REGISTER')}
                     className="text-xs text-[#94a3b8] hover:text-[#4fd1c5] transition-colors cursor-pointer"
                   >
-                    Don't have an account?{' '}
+                    Need to complete registration?{' '}
                     <span className="text-[#4fd1c5] font-semibold underline underline-offset-2">
-                      Register New Account
+                      Register Account
                     </span>
                   </button>
                 </div>
               )}
             </form>
 
-            {/* Whitelist Domain Guide */}
+            {/* Strict Whitelist Roster Information */}
             <div className="mt-6 pt-5 border-t border-[#1a3454]">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-[#94a3b8]">
-                  Verified Corporate Email Policy
+                  Authorized Customer Roster
                 </span>
-                <span className="text-[10px] text-[#4fd1c5] font-mono">Domain Enforced</span>
+                <span className="text-[10px] text-[#4fd1c5] font-mono">6 Verified Accounts</span>
               </div>
-              <div className="flex flex-wrap gap-1.5">
-                {WHITELISTED_DOMAINS.map((domain, i) => (
-                  <span
-                    key={i}
-                    onClick={() => {
-                      if (!domain.includes('domain')) {
-                        setClientEmail(domain);
-                      }
-                    }}
-                    className="text-[10px] font-mono bg-[#091424] text-teal-300/80 px-2 py-0.5 rounded border border-[#1a3454] cursor-pointer hover:border-[#4fd1c5]/40 hover:text-[#4fd1c5] transition-colors"
-                    title="Click to fill email"
-                  >
-                    {domain}
-                  </span>
-                ))}
+              <div className="p-3 rounded-lg bg-[#091424] border border-[#1a3454] text-xs text-[#94a3b8] space-y-1.5">
+                <p className="text-[11px] font-semibold text-slate-300 flex items-center gap-1.5">
+                  <Shield className="w-3.5 h-3.5 text-[#4fd1c5]" />
+                  Zero-Trust Domain & Profile Enforcement:
+                </p>
+                <p className="text-[11px] text-[#94a3b8] leading-relaxed">
+                  Registration and login are strictly restricted to the 6 authorized corporate partner accounts (Anmol, Acme, BMC, Sam, Standard Customer, Enterprise Client). Manual entry required.
+                </p>
               </div>
             </div>
           </div>
@@ -652,7 +705,7 @@ export const CompanyCMSFrontPage: React.FC<CompanyCMSFrontPageProps> = ({
                   Support Agent Console
                 </h2>
                 <p className="text-xs text-[#94a3b8] mt-0.5">
-                  Pre-provisioned triage operators only. Self-registration is strictly prohibited.
+                  Pre-provisioned desk leads only. Public self-registration is strictly prohibited.
                 </p>
               </div>
               <span className="text-[10px] font-bold font-mono text-[#4fd1c5] bg-[#4fd1c5]/10 px-2.5 py-1 rounded-full border border-[#4fd1c5]/30">
@@ -660,18 +713,18 @@ export const CompanyCMSFrontPage: React.FC<CompanyCMSFrontPageProps> = ({
               </span>
             </div>
 
-            {/* Agent Registration Prohibition Alert */}
+            {/* Prohibition Alert */}
             <div className="mb-5 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs flex items-center gap-2.5">
               <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
               <span>
-                <strong>Directory Sync:</strong> Support Agents cannot register accounts. Select your desk lead below to authenticate.
+                <strong>Registration Prohibited:</strong> Support Agents are pre-provisioned. Registration attempts under an agent email will be rejected.
               </span>
             </div>
 
             <form onSubmit={handleAgentSubmit} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-[#94a3b8] mb-1.5">
-                  Agent Corporate Email
+                  Support Agent Email
                 </label>
                 <div className="relative">
                   <Mail className="w-4 h-4 text-[#94a3b8] absolute left-3.5 top-3" />
@@ -679,7 +732,11 @@ export const CompanyCMSFrontPage: React.FC<CompanyCMSFrontPageProps> = ({
                     type="email"
                     value={agentEmail}
                     onChange={(e) => setAgentEmail(e.target.value)}
-                    placeholder="operator@agent.company.com"
+                    placeholder="agent-id@company.com"
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="off"
+                    spellCheck={false}
                     required
                     className="w-full bg-[#091424] border border-[#1a3454] focus:border-[#4fd1c5] focus:outline-hidden text-white pl-10 pr-3.5 py-2.5 rounded-lg text-sm transition-colors font-mono"
                   />
@@ -698,6 +755,10 @@ export const CompanyCMSFrontPage: React.FC<CompanyCMSFrontPageProps> = ({
                     value={agentPassword}
                     onChange={(e) => setAgentPassword(e.target.value)}
                     placeholder="••••••••"
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="off"
+                    spellCheck={false}
                     required
                     className="w-full bg-[#091424] border border-[#1a3454] focus:border-[#4fd1c5] focus:outline-hidden text-white pl-10 pr-3.5 py-2.5 rounded-lg text-sm transition-colors"
                   />
@@ -709,41 +770,37 @@ export const CompanyCMSFrontPage: React.FC<CompanyCMSFrontPageProps> = ({
                 disabled={isLoading}
                 className="w-full mt-2 bg-[#4fd1c5] hover:bg-[#38b2ac] text-[#091424] font-bold py-3 px-4 rounded-xl text-sm transition-all duration-200 flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(79,209,197,0.3)] disabled:opacity-50 cursor-pointer"
               >
-                <span>Authenticate Agent Console →</span>
+                <span>Authenticate & Enter Support Agent Triage Inbox →</span>
               </button>
             </form>
 
-            {/* Pre-provisioned Agent Desks Switcher */}
+            {/* Pre-provisioned Agent Desks Information */}
             <div className="mt-6 pt-5 border-t border-[#1a3454]">
-              <div className="flex items-center justify-between mb-2.5">
+              <div className="flex items-center justify-between mb-2">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-[#94a3b8]">
-                  Select Pre-Provisioned Desk Lead
+                  Operational Support Desks
                 </span>
-                <span className="text-[10px] text-[#4fd1c5] font-mono">4 Active Desks</span>
+                <span className="text-[10px] text-[#4fd1c5] font-mono">4 Desks Active</span>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {PRE_PROVISIONED_AGENTS.map((agent) => (
-                  <button
-                    key={agent.agentId}
-                    type="button"
-                    onClick={() => handleSelectAgent(agent)}
-                    className={`p-2.5 rounded-lg border text-left transition-all cursor-pointer ${
-                      agentEmail === agent.email
-                        ? 'bg-[#152a45] border-[#4fd1c5] shadow-[0_0_12px_rgba(79,209,197,0.2)]'
-                        : 'bg-[#091424] border-[#1a3454] hover:border-[#4fd1c5]/40 hover:bg-[#0e1d32]'
-                    }`}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                {[
+                  { department: 'Finance & Payroll', code: '#AGT-FIN-01', scope: 'Billing, Invoices & ERP Reconciliation' },
+                  { department: 'Technical Support', code: '#AGT-TECH-01', scope: 'Cloud Infra, Gateway & API Services' },
+                  { department: 'Customer Care', code: '#AGT-CARE-01', scope: 'User SLA, DWP Accounts & Portal Access' },
+                  { department: 'Logistics Desk', code: '#AGT-LOG-01', scope: 'Hardware, Asset Dispatch & Fulfillment' },
+                ].map((desk) => (
+                  <div
+                    key={desk.code}
+                    className="p-2.5 rounded-lg bg-[#091424] border border-[#1a3454] flex flex-col justify-between"
                   >
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-white">{agent.name}</span>
-                      <span className="text-[10px] font-mono text-[#4fd1c5]">{agent.agentId}</span>
+                      <span className="font-bold text-white text-[11px]">{desk.department}</span>
+                      <span className="font-mono text-[10px] text-[#4fd1c5]">{desk.code}</span>
                     </div>
-                    <div className="text-[11px] font-semibold text-teal-300 mt-0.5">
-                      {agent.department}
+                    <div className="text-[10px] text-[#94a3b8] mt-1">
+                      {desk.scope}
                     </div>
-                    <div className="text-[10px] text-[#94a3b8] font-mono truncate mt-0.5">
-                      {agent.email}
-                    </div>
-                  </button>
+                  </div>
                 ))}
               </div>
             </div>
@@ -751,7 +808,7 @@ export const CompanyCMSFrontPage: React.FC<CompanyCMSFrontPageProps> = ({
         )}
       </div>
 
-      {/* Real-time State Schema Inspector Toggle */}
+      {/* 4. JSON Audit & Triage Output Schema Inspector */}
       <div className="w-full max-w-xl mt-6">
         <button
           type="button"
@@ -760,7 +817,7 @@ export const CompanyCMSFrontPage: React.FC<CompanyCMSFrontPageProps> = ({
         >
           <span className="flex items-center gap-2">
             <Code className="w-4 h-4 text-[#4fd1c5]" />
-            CompanyCMS Real-Time State Controller & Schema Inspector
+            JSON Audit & Triage Output Schema Controller
           </span>
           <span className="text-[11px] text-[#4fd1c5]">
             {showJsonInspector ? '▲ Collapse Schema' : '▼ Expand Schema'}
@@ -771,7 +828,7 @@ export const CompanyCMSFrontPage: React.FC<CompanyCMSFrontPageProps> = ({
           <div className="mt-3 p-4 rounded-xl bg-[#091424] border border-[#1a3454] shadow-inner">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-bold text-[#4fd1c5] font-mono">
-                REQUIRED OUTPUT SCHEMA (LIVE JSON):
+                REAL-TIME AUDIT & VIEW ACCESS STATE (JSON):
               </span>
               <button
                 type="button"
@@ -783,7 +840,7 @@ export const CompanyCMSFrontPage: React.FC<CompanyCMSFrontPageProps> = ({
               </button>
             </div>
             <pre className="text-[11px] font-mono text-teal-300/90 overflow-x-auto p-3 bg-[#060e1a] rounded-lg border border-[#1a3454] leading-relaxed">
-              {JSON.stringify(getCurrentStateJson(), null, 2)}
+              {JSON.stringify(auditSchema, null, 2)}
             </pre>
           </div>
         )}

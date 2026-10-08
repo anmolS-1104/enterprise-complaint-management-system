@@ -4,7 +4,7 @@ import { CompanyCMSFrontPage } from './components/CompanyCMSFrontPage';
 import { DWPClientPortal } from './components/DWPClientPortal';
 import { SmartITConsole } from './components/SmartITConsole';
 import { INITIAL_TICKETS } from './data/sampleComplaints';
-import { IncidentTicket, TicketStatus, AppUser, CompanyCMSState } from './types/icrs';
+import { IncidentTicket, TicketStatus, AppUser, CompanyCMSState, CompanyCMSAuditSchema } from './types/icrs';
 import { Code, X, Copy, Check } from 'lucide-react';
 
 export default function App() {
@@ -16,16 +16,30 @@ export default function App() {
   //    - The Customer Complaint Submission Box and the Agent Triage Console MUST REMAIN COMPLETELY HIDDEN until successful login.
   //    - No pre-authenticated session is assumed.
   const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
+  const [latestAudit, setLatestAudit] = useState<CompanyCMSAuditSchema | null>(null);
 
   // Modal / drawer state for Live State Schema Inspector
   const [isInspectorOpen, setIsInspectorOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [inspectorTab, setInspectorTab] = useState<'AUDIT' | 'FULL'>('AUDIT');
 
   const handleSignOut = () => {
     // LOGOUT ENFORCEMENT:
     // Session termination immediately purges active auth tokens, closes all active queue views,
     // and resets the interface back to the initial CompanyCMS Front Page.
     setCurrentUser(null);
+    setLatestAudit({
+      auth_audit: {
+        status: 'APPROVED',
+        authenticated_user: 'NONE',
+        user_role: 'UNAUTHORIZED',
+        rejection_reason: 'NONE',
+      },
+      view_access: {
+        rendered_screen: 'AUTH_PORTAL',
+        assigned_desk: 'NONE',
+      },
+    });
   };
 
   const handleLoginSuccess = (user: AppUser) => {
@@ -44,6 +58,67 @@ export default function App() {
 
   const handleBatchCompleted = (batchTickets: IncidentTicket[]) => {
     setTickets((prev) => [...batchTickets, ...prev]);
+  };
+
+  // Compute 4. JSON AUDIT & TRIAGE OUTPUT SCHEMA
+  const getAuditSchemaJson = (): CompanyCMSAuditSchema => {
+    if (!currentUser) {
+      if (latestAudit) {
+        return latestAudit;
+      }
+      return {
+        auth_audit: {
+          status: 'APPROVED',
+          authenticated_user: 'NONE',
+          user_role: 'UNAUTHORIZED',
+          rejection_reason: 'NONE',
+        },
+        view_access: {
+          rendered_screen: 'AUTH_PORTAL',
+          assigned_desk: 'NONE',
+        },
+      };
+    }
+
+    if (currentUser.role === 'CLIENT') {
+      return {
+        auth_audit: {
+          status: 'APPROVED',
+          authenticated_user: currentUser.email,
+          user_role: 'CUSTOMER',
+          rejection_reason: 'NONE',
+        },
+        view_access: {
+          rendered_screen: 'CLIENT_COMPLAINT_BOX',
+          assigned_desk: 'NONE',
+        },
+      };
+    }
+
+    // Support Agent
+    const assignedDesk =
+      currentUser.department?.includes('Finance')
+        ? 'Finance & Payroll'
+        : currentUser.department?.includes('Tech') || currentUser.department?.includes('Cloud')
+        ? 'Technical Support'
+        : currentUser.department?.includes('Care')
+        ? 'Customer Care'
+        : currentUser.department?.includes('Logistics') || currentUser.department?.includes('Hardware')
+        ? 'Logistics Desk'
+        : 'NONE';
+
+    return {
+      auth_audit: {
+        status: 'APPROVED',
+        authenticated_user: currentUser.email,
+        user_role: 'SUPPORT_AGENT',
+        rejection_reason: 'NONE',
+      },
+      view_access: {
+        rendered_screen: 'AGENT_TRIAGE_INBOX',
+        assigned_desk: assignedDesk as any,
+      },
+    };
   };
 
   // Compute live CompanyCMSState JSON matching the REQUIRED OUTPUT SCHEMA
@@ -211,7 +286,10 @@ export default function App() {
             Render ONLY the CompanyCMS Front Page with the dual-role pill switchers.
             The Customer Complaint Submission Box and the Agent Triage Console MUST REMAIN COMPLETELY HIDDEN until successful login. */}
         {currentUser === null && (
-          <CompanyCMSFrontPage onLoginSuccess={handleLoginSuccess} />
+          <CompanyCMSFrontPage
+            onLoginSuccess={handleLoginSuccess}
+            onAuditChange={setLatestAudit}
+          />
         )}
 
         {/* 2. Persona A — Customer Portal:
@@ -244,16 +322,47 @@ export default function App() {
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-[#112238] border border-[#1a3454] rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-[0_0_50px_rgba(79,209,197,0.15)]">
             <div className="flex items-center justify-between p-4 border-b border-[#1a3454]">
-              <div className="flex items-center gap-2">
-                <Code className="w-5 h-5 text-[#4fd1c5]" />
-                <h3 className="text-sm font-bold text-white font-mono">
-                  CompanyCMS State Controller · Live Schema Output
-                </h3>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <Code className="w-5 h-5 text-[#4fd1c5]" />
+                  <h3 className="text-sm font-bold text-white font-mono">
+                    Schema Controller Output
+                  </h3>
+                </div>
+                <div className="inline-flex rounded-lg bg-[#091424] p-0.5 border border-[#1a3454]">
+                  <button
+                    type="button"
+                    onClick={() => setInspectorTab('AUDIT')}
+                    className={`px-2.5 py-1 text-xs rounded-md font-mono transition-colors cursor-pointer ${
+                      inspectorTab === 'AUDIT'
+                        ? 'bg-[#4fd1c5] text-[#091424] font-bold'
+                        : 'text-[#94a3b8] hover:text-white'
+                    }`}
+                  >
+                    Auth Audit Schema
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setInspectorTab('FULL')}
+                    className={`px-2.5 py-1 text-xs rounded-md font-mono transition-colors cursor-pointer ${
+                      inspectorTab === 'FULL'
+                        ? 'bg-[#4fd1c5] text-[#091424] font-bold'
+                        : 'text-[#94a3b8] hover:text-white'
+                    }`}
+                  >
+                    Full State JSON
+                  </button>
+                </div>
               </div>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={handleCopyJson}
+                  onClick={() => {
+                    const toCopy = inspectorTab === 'AUDIT' ? getAuditSchemaJson() : getGlobalStateJson();
+                    navigator.clipboard.writeText(JSON.stringify(toCopy, null, 2));
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                  }}
                   className="px-2.5 py-1 text-xs bg-[#091424] hover:bg-[#152a45] text-[#94a3b8] hover:text-[#4fd1c5] border border-[#1a3454] rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
                 >
                   {copied ? <Check className="w-3.5 h-3.5 text-[#4fd1c5]" /> : <Copy className="w-3.5 h-3.5" />}
@@ -270,11 +379,22 @@ export default function App() {
             </div>
 
             <div className="p-4 overflow-y-auto flex-1 bg-[#091424]">
-              <div className="text-[11px] text-[#94a3b8] mb-2 font-mono">
-                Schema standard: COMPANY_CMS_TEAL_DARK · Current Render: {currentUser ? (currentUser.role === 'CLIENT' ? 'CLIENT_COMPLAINT_BOX' : 'AGENT_TRIAGE_INBOX') : 'LANDING_PORTAL'}
+              <div className="text-[11px] text-[#94a3b8] mb-2 font-mono flex items-center justify-between">
+                <span>
+                  {inspectorTab === 'AUDIT'
+                    ? 'Target Schema 4: auth_audit & view_access'
+                    : 'Extended Schema: ui_state, auth_validation & triage_result'}
+                </span>
+                <span className="text-[#4fd1c5]">
+                  Screen: {getAuditSchemaJson().view_access.rendered_screen}
+                </span>
               </div>
               <pre className="text-xs font-mono text-teal-300 overflow-x-auto p-4 bg-[#060e1a] rounded-xl border border-[#1a3454] leading-relaxed">
-                {JSON.stringify(getGlobalStateJson(), null, 2)}
+                {JSON.stringify(
+                  inspectorTab === 'AUDIT' ? getAuditSchemaJson() : getGlobalStateJson(),
+                  null,
+                  2
+                )}
               </pre>
             </div>
           </div>

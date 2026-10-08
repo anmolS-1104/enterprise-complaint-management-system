@@ -190,3 +190,16 @@ export interface CompanyCMSState {
     customer_notification: string;
   };
 }
+
+export interface CompanyCMSAuditSchema {
+  auth_audit: {
+    status: 'APPROVED' | 'REJECTED';
+    authenticated_user: string;
+    user_role: 'CUSTOMER' | 'SUPPORT_AGENT' | 'UNAUTHORIZED';
+    rejection_reason: string;
+  };
+  view_access: {
+    rendered_screen: 'AUTH_PORTAL' | 'CLIENT_COMPLAINT_BOX' | 'AGENT_TRIAGE_INBOX';
+    assigned_desk: 'Finance & Payroll' | 'Technical Support' | 'Customer Care' | 'Logistics Desk' | 'NONE';
+  };
+}

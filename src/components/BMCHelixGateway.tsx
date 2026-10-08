@@ -69,37 +69,21 @@ export const BMCHelixGateway: React.FC<BMCHelixGatewayProps> = ({ onLoginSuccess
   const [clientSubTab, setClientSubTab] = useState<'LOGIN' | 'REGISTER'>('LOGIN');
 
   // Client form states
-  const [clientEmail, setClientEmail] = useState('customer@client.com');
-  const [clientPhone, setClientPhone] = useState('9876543210');
-  const [clientPassword, setClientPassword] = useState('Enterprise2026!');
-  const [clientName, setClientName] = useState('David K.');
-  const [clientCompany, setClientCompany] = useState('FinGlobal Technologies');
+  const [clientEmail, setClientEmail] = useState('');
+  const [clientPhone, setClientPhone] = useState('');
+  const [clientPassword, setClientPassword] = useState('');
+  const [clientName, setClientName] = useState('');
+  const [clientCompany, setClientCompany] = useState('');
 
   // Agent form states
-  const [agentEmail, setAgentEmail] = useState('tech@agent.company.com');
-  const [agentPassword, setAgentPassword] = useState('LeadAlexRivera2026');
+  const [agentEmail, setAgentEmail] = useState('');
+  const [agentPassword, setAgentPassword] = useState('');
 
   // Status & error states
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [authValidationResult, setAuthValidationResult] = useState<AuthValidationResult | null>(null);
-
-  // Quick fill client
-  const handleQuickFillClient = (email: string, name: string, phone: string, company: string) => {
-    setClientEmail(email);
-    setClientName(name);
-    setClientPhone(phone);
-    setClientCompany(company);
-    setErrorMessage(null);
-  };
-
-  // Quick fill agent
-  const handleQuickFillAgent = (agent: (typeof PRE_PROVISIONED_AGENTS)[0]) => {
-    setAgentEmail(agent.email);
-    setAgentPassword(`Lead${agent.name.replace(/\s+/g, '')}2026`);
-    setErrorMessage(null);
-  };
 
   // Handle Client Login / Register
   const handleClientSubmit = async (e: React.FormEvent) => {
@@ -437,9 +421,13 @@ export const BMCHelixGateway: React.FC<BMCHelixGatewayProps> = ({ onLoginSuccess
                         type="text"
                         value={clientName}
                         onChange={(e) => setClientName(e.target.value)}
+                        autoComplete="off"
+                        autoCorrect="off"
+                        autoCapitalize="off"
+                        spellCheck={false}
                         required
                         className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-blue-500 font-sans"
-                        placeholder="David K."
+                        placeholder="Full Name"
                       />
                     </div>
                     <div>
@@ -450,9 +438,13 @@ export const BMCHelixGateway: React.FC<BMCHelixGatewayProps> = ({ onLoginSuccess
                         type="text"
                         value={clientCompany}
                         onChange={(e) => setClientCompany(e.target.value)}
+                        autoComplete="off"
+                        autoCorrect="off"
+                        autoCapitalize="off"
+                        spellCheck={false}
                         required
                         className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-blue-500 font-sans"
-                        placeholder="FinGlobal Technologies"
+                        placeholder="Organization Name"
                       />
                     </div>
                   </div>
@@ -468,9 +460,13 @@ export const BMCHelixGateway: React.FC<BMCHelixGatewayProps> = ({ onLoginSuccess
                       type="email"
                       value={clientEmail}
                       onChange={(e) => setClientEmail(e.target.value)}
+                      autoComplete="off"
+                      autoCorrect="off"
+                      autoCapitalize="off"
+                      spellCheck={false}
                       required
                       className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-blue-500 font-mono"
-                      placeholder="customer@client.com"
+                      placeholder="user@client.com"
                     />
                     <span className="text-[10px] text-slate-400 mt-0.5 block">
                       Must end in @client.com or match verified whitelist.
@@ -487,10 +483,14 @@ export const BMCHelixGateway: React.FC<BMCHelixGatewayProps> = ({ onLoginSuccess
                         type="tel"
                         value={clientPhone}
                         onChange={(e) => setClientPhone(e.target.value)}
+                        autoComplete="off"
+                        autoCorrect="off"
+                        autoCapitalize="off"
+                        spellCheck={false}
                         required
                         maxLength={10}
                         className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-blue-500 font-mono"
-                        placeholder="9876543210"
+                        placeholder="10-digit number"
                       />
                       <span className="text-[10px] text-slate-400 mt-0.5 block">
                         Strictly numeric, exactly 10 digits.
@@ -506,6 +506,10 @@ export const BMCHelixGateway: React.FC<BMCHelixGatewayProps> = ({ onLoginSuccess
                         type="password"
                         value={clientPassword}
                         onChange={(e) => setClientPassword(e.target.value)}
+                        autoComplete="off"
+                        autoCorrect="off"
+                        autoCapitalize="off"
+                        spellCheck={false}
                         required
                         className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-blue-500 font-mono"
                         placeholder="••••••••"
@@ -527,6 +531,10 @@ export const BMCHelixGateway: React.FC<BMCHelixGatewayProps> = ({ onLoginSuccess
                       type="password"
                       value={clientPassword}
                       onChange={(e) => setClientPassword(e.target.value)}
+                      autoComplete="off"
+                      autoCorrect="off"
+                      autoCapitalize="off"
+                      spellCheck={false}
                       required
                       minLength={6}
                       className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-blue-500 font-mono"
@@ -561,68 +569,16 @@ export const BMCHelixGateway: React.FC<BMCHelixGatewayProps> = ({ onLoginSuccess
                 </div>
               </form>
 
-              {/* Quick Preset Buttons for Corporate Clients */}
-              <div className="pt-4 border-t border-slate-100 space-y-2">
-                <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">
-                  Quick-Verify Verified Corporate Clients (Demo):
-                </span>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      handleQuickFillClient(
-                        'customer@client.com',
-                        'Marcus Vance',
-                        '9876543210',
-                        'FinGlobal Technologies'
-                      )
-                    }
-                    className="px-2.5 py-1 text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-mono transition-colors cursor-pointer"
-                  >
-                    customer@client.com (FinGlobal)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      handleQuickFillClient(
-                        'client@client.com',
-                        'Elena Rostova',
-                        '9123456780',
-                        'Apex Logistics Inc.'
-                      )
-                    }
-                    className="px-2.5 py-1 text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-mono transition-colors cursor-pointer"
-                  >
-                    client@client.com (Apex Logistics)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      handleQuickFillClient(
-                        'anmol.client@gmail.com',
-                        'Anmol Shinde',
-                        '9988776655',
-                        'Client Partner Group'
-                      )
-                    }
-                    className="px-2.5 py-1 text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-mono transition-colors cursor-pointer"
-                  >
-                    anmol.client@gmail.com (Whitelist)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      handleQuickFillClient(
-                        'client.bmc@gmail.com',
-                        'Enterprise Admin',
-                        '9871234560',
-                        'BMC Enterprise Solutions'
-                      )
-                    }
-                    className="px-2.5 py-1 text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-mono transition-colors cursor-pointer"
-                  >
-                    client.bmc@gmail.com (BMC Whitelist)
-                  </button>
+              {/* Corporate Policy Notice */}
+              <div className="pt-4 border-t border-slate-100">
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-600 space-y-1">
+                  <p className="font-semibold text-slate-800 flex items-center gap-1.5">
+                    <Building2 className="w-3.5 h-3.5 text-blue-600" />
+                    Corporate Domain Restriction Policy
+                  </p>
+                  <p className="text-[11px] leading-relaxed">
+                    Access is restricted to authorized corporate email domains ending in @client.com or approved enterprise partners. Registration requires a valid 10-digit phone number.
+                  </p>
                 </div>
               </div>
             </div>
@@ -650,39 +606,15 @@ export const BMCHelixGateway: React.FC<BMCHelixGatewayProps> = ({ onLoginSuccess
                 </div>
               </div>
 
-              {/* Roster of 4 Pre-provisioned Desk Leads */}
-              <div className="space-y-2">
-                <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">
-                  Click a Pre-Provisioned ITIL Desk Lead to Auto-Fill Credentials:
-                </span>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                  {PRE_PROVISIONED_AGENTS.map((agent) => (
-                    <button
-                      key={agent.agentId}
-                      type="button"
-                      onClick={() => handleQuickFillAgent(agent)}
-                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                        agentEmail === agent.email
-                          ? 'border-emerald-500 bg-emerald-50/50 shadow-2xs ring-1 ring-emerald-400'
-                          : 'border-slate-200 bg-slate-50/70 hover:bg-slate-100/80 hover:border-slate-300'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="font-mono text-[10px] font-bold text-emerald-700 bg-emerald-100/60 px-1.5 py-0.5 rounded">
-                          {agent.agentId}
-                        </span>
-                        <span className="text-[10px] text-slate-400">Desk Lead</span>
-                      </div>
-                      <div className="text-xs font-bold text-slate-900">{agent.name}</div>
-                      <div className="text-[10px] text-slate-600 font-medium truncate">
-                        {agent.department}
-                      </div>
-                      <div className="text-[10px] font-mono text-slate-400 truncate mt-0.5">
-                        {agent.email}
-                      </div>
-                    </button>
-                  ))}
-                </div>
+              {/* Secure Desk Notice (Zero Leakage) */}
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-600 space-y-1">
+                <p className="font-semibold text-slate-800 flex items-center gap-1.5">
+                  <Shield className="w-3.5 h-3.5 text-emerald-600" />
+                  Directory Enforced Desk Routing
+                </p>
+                <p className="text-[11px] leading-relaxed">
+                  Support Desks (Finance & Payroll, Technical Support, Customer Care, Logistics) require direct manual credential entry. Public self-registration is prohibited.
+                </p>
               </div>
 
               <form onSubmit={handleAgentSubmit} className="space-y-4 pt-2">
@@ -696,9 +628,13 @@ export const BMCHelixGateway: React.FC<BMCHelixGatewayProps> = ({ onLoginSuccess
                       type="email"
                       value={agentEmail}
                       onChange={(e) => setAgentEmail(e.target.value)}
+                      autoComplete="off"
+                      autoCorrect="off"
+                      autoCapitalize="off"
+                      spellCheck={false}
                       required
                       className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-emerald-500 font-mono"
-                      placeholder="tech@agent.company.com"
+                      placeholder="agent-id@company.com"
                     />
                   </div>
 
@@ -711,6 +647,10 @@ export const BMCHelixGateway: React.FC<BMCHelixGatewayProps> = ({ onLoginSuccess
                       type="password"
                       value={agentPassword}
                       onChange={(e) => setAgentPassword(e.target.value)}
+                      autoComplete="off"
+                      autoCorrect="off"
+                      autoCapitalize="off"
+                      spellCheck={false}
                       required
                       className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-emerald-500 font-mono"
                       placeholder="••••••••"

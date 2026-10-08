@@ -29,18 +29,55 @@ if (apiKey) {
   });
 }
 
-// Corporate Email Whitelist Constraints
-const ALLOWED_EMAIL_SUFFIX = '@client.com';
-const WHITELISTED_EMAILS = [
-  'customer@client.com',
-  'client@client.com',
-  'anmol.client@gmail.com',
-  'client.acme@gmail.com',
-  'client.bmc@gmail.com',
-  'client@acmecorp.com',
-];
+// STRICT DATABASE WHITELIST (EXACT 6 CUSTOMER ACCOUNTS)
+const STRICT_CUSTOMER_WHITELIST: Record<
+  string,
+  { name: string; phone: string; company: string }
+> = {
+  'anmol.client@gmail.com': { name: 'Anmol', phone: '1234567891', company: 'Partner Enterprise' },
+  'client.acme@gmail.com': { name: 'Acme', phone: '1234567891', company: 'Acme Corp' },
+  'client.bmc@gmail.com': { name: 'BMC', phone: '1234567891', company: 'BMC Helix' },
+  'client@acmecorp.com': { name: 'Sam', phone: '1234567891', company: 'Acme Corp' },
+  'customer@client.com': { name: 'Standard Customer', phone: '9876543210', company: 'FinGlobal' },
+  'client@client.com': { name: 'Enterprise Client', phone: '9876543211', company: 'Apex Logistics' },
+};
 
-// Pre-provisioned Internal Support Agent Roster (DIRECT LOGIN ONLY)
+// Pre-provisioned Support Agent Desks (NO REGISTRATION)
+const PRE_PROVISIONED_AGENTS: Record<
+  string,
+  {
+    name: string;
+    department: string;
+    agentId: '#AGT-FIN-01' | '#AGT-TECH-01' | '#AGT-CARE-01' | '#AGT-LOG-01';
+    company: string;
+  }
+> = {
+  'finance@agent.company.com': {
+    name: 'Elena Vance',
+    department: 'Finance & Payroll',
+    agentId: '#AGT-FIN-01',
+    company: 'CompanyCMS Support Console',
+  },
+  'tech@agent.company.com': {
+    name: 'Alex Rivera',
+    department: 'Technical Support',
+    agentId: '#AGT-TECH-01',
+    company: 'CompanyCMS Support Console',
+  },
+  'care@agent.company.com': {
+    name: 'Sarah Jenkins',
+    department: 'Customer Care',
+    agentId: '#AGT-CARE-01',
+    company: 'CompanyCMS Support Console',
+  },
+  'logistics@agent.company.com': {
+    name: 'Marcus Vance',
+    department: 'Logistics Desk',
+    agentId: '#AGT-LOG-01',
+    company: 'CompanyCMS Support Console',
+  },
+};
+
 interface UserAccount {
   id: string;
   email: string;
@@ -48,116 +85,36 @@ interface UserAccount {
   role: 'CLIENT' | 'SUPPORT_AGENT';
   phone?: string;
   company?: string;
-  department?:
-    | 'Cloud & Technical Infrastructure'
-    | 'Finance & ERP Operations'
-    | 'Global Customer Care & DWP Support'
-    | 'Hardware & Asset Logistics'
-    | 'Finance & Payroll'
-    | 'Technical Support'
-    | 'Customer Care'
-    | 'Logistics Desk'
-    | string;
+  department?: string;
   agentId?: '#AGT-FIN-01' | '#AGT-TECH-01' | '#AGT-CARE-01' | '#AGT-LOG-01';
 }
 
-const REGISTERED_USERS: Map<string, UserAccount> = new Map([
-  // The 4 Pre-provisioned Internal Support Agents for BMC Helix ITSM (no public registration allowed)
-  [
-    'finance@agent.company.com',
-    {
-      id: 'USR-AGT-01',
-      email: 'finance@agent.company.com',
-      name: 'Elena Vance',
-      role: 'SUPPORT_AGENT',
-      department: 'Finance & ERP Operations',
-      agentId: '#AGT-FIN-01',
-      company: 'BMC Helix ITSM Support Console',
-    },
-  ],
-  [
-    'tech@agent.company.com',
-    {
-      id: 'USR-AGT-02',
-      email: 'tech@agent.company.com',
-      name: 'Alex Rivera',
-      role: 'SUPPORT_AGENT',
-      department: 'Cloud & Technical Infrastructure',
-      agentId: '#AGT-TECH-01',
-      company: 'BMC Helix ITSM Support Console',
-    },
-  ],
-  [
-    'care@agent.company.com',
-    {
-      id: 'USR-AGT-03',
-      email: 'care@agent.company.com',
-      name: 'Sarah Jenkins',
-      role: 'SUPPORT_AGENT',
-      department: 'Global Customer Care & DWP Support',
-      agentId: '#AGT-CARE-01',
-      company: 'BMC Helix ITSM Support Console',
-    },
-  ],
-  [
-    'logistics@agent.company.com',
-    {
-      id: 'USR-AGT-04',
-      email: 'logistics@agent.company.com',
-      name: 'Marcus Vance',
-      role: 'SUPPORT_AGENT',
-      department: 'Hardware & Asset Logistics',
-      agentId: '#AGT-LOG-01',
-      company: 'BMC Helix ITSM Support Console',
-    },
-  ],
+const REGISTERED_USERS: Map<string, UserAccount> = new Map();
 
-  // Pre-seeded verified corporate clients for BMC Helix Digital Workplace (DWP)
-  [
-    'customer@client.com',
-    {
-      id: 'USR-CLIENT-01',
-      email: 'customer@client.com',
-      name: 'Marcus Vance',
-      role: 'CLIENT',
-      phone: '9876543210',
-      company: 'FinGlobal Technologies',
-    },
-  ],
-  [
-    'client@client.com',
-    {
-      id: 'USR-CLIENT-02',
-      email: 'client@client.com',
-      name: 'Elena Rostova',
-      role: 'CLIENT',
-      phone: '9123456780',
-      company: 'Apex Logistics Inc.',
-    },
-  ],
-  [
-    'anmol.client@gmail.com',
-    {
-      id: 'USR-CLIENT-03',
-      email: 'anmol.client@gmail.com',
-      name: 'Anmol Shinde',
-      role: 'CLIENT',
-      phone: '9988776655',
-      company: 'Client Partner Group',
-    },
-  ],
-  [
-    'client.bmc@gmail.com',
-    {
-      id: 'USR-CLIENT-04',
-      email: 'client.bmc@gmail.com',
-      name: 'Enterprise Client Admin',
-      role: 'CLIENT',
-      phone: '9871234560',
-      company: 'BMC Enterprise Solutions',
-    },
-  ],
-]);
+// Populate the 4 pre-provisioned support agents
+Object.entries(PRE_PROVISIONED_AGENTS).forEach(([email, data], idx) => {
+  REGISTERED_USERS.set(email, {
+    id: `USR-AGT-0${idx + 1}`,
+    email,
+    name: data.name,
+    role: 'SUPPORT_AGENT',
+    department: data.department,
+    agentId: data.agentId,
+    company: data.company,
+  });
+});
+
+// Populate the exact 6 authorized customer accounts
+Object.entries(STRICT_CUSTOMER_WHITELIST).forEach(([email, data], idx) => {
+  REGISTERED_USERS.set(email, {
+    id: `USR-CLIENT-0${idx + 1}`,
+    email,
+    name: data.name,
+    role: 'CLIENT',
+    phone: data.phone,
+    company: data.company,
+  });
+});
 
 // BMC HELIX COGNITIVE ZERO-CLICK NLP TRIAGE & AITSM SYSTEM INSTRUCTION
 const ZERO_CLICK_NLP_INSTRUCTION = `You are the Autonomous Cognitive IT Service Management (AITSM) & Triage Engine for BMC Helix Incident & Service Resolution Studio.
@@ -592,7 +549,8 @@ app.get('/api/health', (_req: Request, res: Response) => {
         email: a.email,
         department: a.department,
       })),
-    whitelistedDomains: [ALLOWED_EMAIL_SUFFIX, ...WHITELISTED_EMAILS],
+    whitelistedCustomers: Object.keys(STRICT_CUSTOMER_WHITELIST),
+    authorizedCustomerProfiles: STRICT_CUSTOMER_WHITELIST,
   });
 });
 
@@ -768,7 +726,7 @@ app.post('/api/triage', async (req: Request, res: Response) => {
 
 // Auth Validation
 app.post('/api/auth/validate', (req: Request, res: Response) => {
-  const { email = '', phone = '', password = '', role = 'CLIENT', action = 'register' } = req.body;
+  const { name = '', email = '', phone = '', password = '', role = 'CLIENT', action = 'register' } = req.body;
   const emailNorm = email.trim().toLowerCase();
 
   // Support Agent Public Registration Ban
@@ -776,13 +734,12 @@ app.post('/api/auth/validate', (req: Request, res: Response) => {
     action === 'register' &&
     (role === 'SUPPORT_AGENT' ||
       emailNorm.includes('agent.company.com') ||
-      emailNorm.includes('icrs-support.com') ||
-      emailNorm.includes('internal.net'))
+      PRE_PROVISIONED_AGENTS[emailNorm])
   ) {
     const rejected = {
       task: 'AUTH_VALIDATION',
       status: 'REJECTED',
-      reason: 'Support Agents are pre-provisioned internally by administrators; NO public registration permitted.',
+      reason: 'Registration prohibited for Support Agent credentials.',
       normalized_email: emailNorm,
       sanitized_phone: phone ? phone.replace(/\D/g, '') : 'N/A',
       error_field: 'EMAIL',
@@ -790,47 +747,61 @@ app.post('/api/auth/validate', (req: Request, res: Response) => {
     return res.json({ success: false, data: rejected, rawJsonString: JSON.stringify(rejected, null, 2) });
   }
 
-  // Email Domain Restriction for Client
-  const isAllowedDomain = emailNorm.endsWith(ALLOWED_EMAIL_SUFFIX);
-  const isWhitelisted = WHITELISTED_EMAILS.includes(emailNorm);
-
-  if (role === 'CLIENT' && !isAllowedDomain && !isWhitelisted) {
-    const rejected = {
-      task: 'AUTH_VALIDATION',
-      status: 'REJECTED',
-      reason: `Corporate email restriction violation. Allowed domains must end in '@client.com' or match explicit whitelist: ${WHITELISTED_EMAILS.join(', ')}.`,
-      normalized_email: emailNorm,
-      sanitized_phone: phone ? phone.replace(/\D/g, '') : 'N/A',
-      error_field: 'EMAIL',
-    };
-    return res.json({ success: false, data: rejected, rawJsonString: JSON.stringify(rejected, null, 2) });
+  // Registration Compulsory Fields
+  if (action === 'register') {
+    if (!name?.trim() || !email?.trim() || !phone?.trim() || !password?.trim()) {
+      const rejected = {
+        task: 'AUTH_VALIDATION',
+        status: 'REJECTED',
+        reason: 'Validation Error: All fields (Full Name, Corporate Email, 10-Digit Phone, Password) are strictly compulsory.',
+        normalized_email: emailNorm,
+        sanitized_phone: phone ? phone.replace(/\D/g, '') : 'N/A',
+        error_field: 'REQUIRED_FIELDS',
+      };
+      return res.json({ success: false, data: rejected, rawJsonString: JSON.stringify(rejected, null, 2) });
+    }
   }
 
-  // Mandatory 10-digit phone for Client
-  const digits = phone.replace(/\D/g, '');
-  if (role === 'CLIENT' && digits.length !== 10) {
-    const rejected = {
-      task: 'AUTH_VALIDATION',
-      status: 'REJECTED',
-      reason: 'Mandatory phone validation failed: Corporate clients must provide an exact 10-digit numeric phone number.',
-      normalized_email: emailNorm,
-      sanitized_phone: digits || 'N/A',
-      error_field: 'PHONE',
-    };
-    return res.json({ success: false, data: rejected, rawJsonString: JSON.stringify(rejected, null, 2) });
-  }
+  // Strict Customer Whitelist Enforcement
+  if (role === 'CLIENT' || role === 'CUSTOMER') {
+    if (!STRICT_CUSTOMER_WHITELIST[emailNorm]) {
+      const rejected = {
+        task: 'AUTH_VALIDATION',
+        status: 'REJECTED',
+        reason: 'ACCESS_DENIED: User not on the corporate authorized roster.',
+        normalized_email: emailNorm,
+        sanitized_phone: phone ? phone.replace(/\D/g, '') : 'N/A',
+        error_field: 'EMAIL',
+      };
+      return res.json({ success: false, data: rejected, rawJsonString: JSON.stringify(rejected, null, 2) });
+    }
 
-  // Minimum 6 characters password
-  if (password.length < 6) {
-    const rejected = {
-      task: 'AUTH_VALIDATION',
-      status: 'REJECTED',
-      reason: 'Password length security violation: Password must be at least 6 characters long.',
-      normalized_email: emailNorm,
-      sanitized_phone: digits || 'N/A',
-      error_field: 'PASSWORD',
-    };
-    return res.json({ success: false, data: rejected, rawJsonString: JSON.stringify(rejected, null, 2) });
+    // Mandatory 10-digit phone for Client
+    const digits = phone.replace(/\D/g, '');
+    if (phone && digits.length !== 10) {
+      const rejected = {
+        task: 'AUTH_VALIDATION',
+        status: 'REJECTED',
+        reason: 'Validation Error: Phone number must be exactly 10 numeric digits.',
+        normalized_email: emailNorm,
+        sanitized_phone: digits || 'N/A',
+        error_field: 'PHONE',
+      };
+      return res.json({ success: false, data: rejected, rawJsonString: JSON.stringify(rejected, null, 2) });
+    }
+
+    // Minimum 6 characters password
+    if (password && password.length < 6) {
+      const rejected = {
+        task: 'AUTH_VALIDATION',
+        status: 'REJECTED',
+        reason: 'Validation Error: Password must be at least 6 characters long.',
+        normalized_email: emailNorm,
+        sanitized_phone: digits || 'N/A',
+        error_field: 'PASSWORD',
+      };
+      return res.json({ success: false, data: rejected, rawJsonString: JSON.stringify(rejected, null, 2) });
+    }
   }
 
   const approved = {
@@ -838,7 +809,7 @@ app.post('/api/auth/validate', (req: Request, res: Response) => {
     status: 'APPROVED',
     reason: 'Validation passed',
     normalized_email: emailNorm,
-    sanitized_phone: digits || 'N/A',
+    sanitized_phone: phone ? phone.replace(/\D/g, '') : 'N/A',
     error_field: 'NONE',
   };
   return res.json({ success: true, data: approved, rawJsonString: JSON.stringify(approved, null, 2) });
@@ -854,30 +825,38 @@ app.post('/api/auth/login', (req: Request, res: Response) => {
     if (password.length < 6) {
       return res.status(400).json({
         success: false,
-        error: 'Password must be at least 6 characters long.',
+        error: 'Validation Error: Password must be at least 6 characters long.',
       });
     }
 
-    const agent = REGISTERED_USERS.get(emailNorm);
-    if (!agent || agent.role !== 'SUPPORT_AGENT') {
+    const agent = PRE_PROVISIONED_AGENTS[emailNorm];
+    if (!agent) {
       return res.status(403).json({
         success: false,
-        error: 'Access Denied: Unrecognized support agent credentials. Only pre-provisioned desk leads may log in.',
+        error: 'ACCESS_DENIED: Unrecognized support agent credentials. Only pre-provisioned desk leads may log in.',
       });
     }
 
+    const userObj = REGISTERED_USERS.get(emailNorm);
     return res.json({
       success: true,
-      user: agent,
+      user: userObj,
       message: `Direct login successful for ${agent.name} (${agent.department} - ${agent.agentId}).`,
     });
   }
 
-  // Corporate Client Login (must be registered)
-  if (!REGISTERED_USERS.has(emailNorm)) {
-    return res.status(404).json({
+  // Customer Login - Must be one of the exact 6 authorized customer accounts
+  if (!STRICT_CUSTOMER_WHITELIST[emailNorm]) {
+    return res.status(403).json({
       success: false,
-      error: 'Client registration required: Corporate clients must register an account before logging in.',
+      error: 'ACCESS_DENIED: User not on the corporate authorized roster.',
+    });
+  }
+
+  if (password.length < 6) {
+    return res.status(400).json({
+      success: false,
+      error: 'Validation Error: Password must be at least 6 characters long.',
     });
   }
 
@@ -885,54 +864,54 @@ app.post('/api/auth/login', (req: Request, res: Response) => {
   return res.json({
     success: true,
     user: client,
-    message: 'Client login verified.',
+    message: 'Corporate customer login verified.',
   });
 });
 
 // Corporate Client Registration
 app.post('/api/auth/register', (req: Request, res: Response) => {
-  const { name = 'Corporate Client', email = '', phone = '', password = '', company = 'Enterprise Client' } = req.body;
+  const { name = '', email = '', phone = '', password = '', company = 'Corporate Partner' } = req.body;
   const emailNorm = email.trim().toLowerCase();
 
   // Support Agent Ban on Register
-  if (emailNorm.includes('agent.company.com') || emailNorm.includes('agent')) {
+  if (emailNorm.includes('agent.company.com') || PRE_PROVISIONED_AGENTS[emailNorm]) {
     return res.status(400).json({
       success: false,
-      error: 'Support Agents are pre-provisioned internally by administrators; NO public registration permitted.',
+      error: 'Registration prohibited for Support Agent credentials.',
     });
   }
 
-  const isAllowedDomain = emailNorm.endsWith(ALLOWED_EMAIL_SUFFIX);
-  const isWhitelisted = WHITELISTED_EMAILS.includes(emailNorm);
-
-  if (!isAllowedDomain && !isWhitelisted) {
-    return res.status(400).json({
-      success: false,
-      error: `Corporate email restriction violation. Allowed domains must end in '@client.com' or match explicit whitelist: ${WHITELISTED_EMAILS.join(', ')}.`,
-    });
-  }
-
+  // All fields strictly compulsory and formatted correctly
   const digits = phone.replace(/\D/g, '');
-  if (digits.length !== 10) {
+  if (
+    !name?.trim() ||
+    !email?.trim() ||
+    !phone?.trim() ||
+    !password?.trim() ||
+    digits.length !== 10 ||
+    password.length < 6
+  ) {
     return res.status(400).json({
       success: false,
-      error: 'Mandatory phone validation failed: Corporate clients must provide an exact 10-digit numeric phone number.',
+      error: 'Security Violation: All fields are compulsory. Phone must be 10 digits and password >= 6 characters.',
     });
   }
 
-  if (password.length < 6) {
-    return res.status(400).json({
+  // Must match strict customer whitelist
+  if (!STRICT_CUSTOMER_WHITELIST[emailNorm]) {
+    return res.status(403).json({
       success: false,
-      error: 'Password must be at least 6 characters long.',
+      error: 'ACCESS_DENIED: User not on the corporate authorized roster.',
     });
   }
 
+  const clientProfile = STRICT_CUSTOMER_WHITELIST[emailNorm];
   const newClient: UserAccount = {
     id: `USR-CLIENT-${Math.floor(1000 + Math.random() * 9000)}`,
     email: emailNorm,
-    name,
+    name: name.trim() || clientProfile.name,
     phone: digits,
-    company,
+    company: company || clientProfile.company,
     role: 'CLIENT',
   };
 
@@ -941,7 +920,7 @@ app.post('/api/auth/register', (req: Request, res: Response) => {
   return res.json({
     success: true,
     user: newClient,
-    message: 'Registration successful.',
+    message: 'Registration successful and verified against corporate roster.',
   });
 });
 
