@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # ======================
 # IntelliJ / IDE files
 # ======================
@@ -42,3 +43,13 @@ complaints_log.txt
 # ======================
 .DS_Store
 Thumbs.db
+=======
+node_modules/
+build/
+dist/
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example
+>>>>>>> 877121348a48e8bbe1de61f640bf6116ab9bce47
