@@ -24,7 +24,7 @@ public class RegisterController {
     @FXML private PasswordField confirmPasswordField;
     @FXML private Label messageLabel;
 
-    // Approved client accounts authorized to register
+    // Authorized enterprise client emails
     private static final Set<String> ALLOWED_CLIENT_EMAILS = Set.of(
             "customer@client.com",
             "client@client.com",
@@ -42,9 +42,9 @@ public class RegisterController {
         String password = passwordField.getText();
         String confirm = confirmPasswordField.getText();
 
-        // Basic Validation
-        if (name.isEmpty() || !email.contains("@") || password.length() < 6) {
-            showMessage("Invalid details. Email must be valid & Password > 6 chars.", true);
+        // Basic & Mandatory Phone Validation
+        if (name.isEmpty() || !email.contains("@") || phone.isEmpty() || password.length() < 6) {
+            showMessage("Invalid details. All fields including Phone are required & Password > 6 chars.", true);
             return;
         }
 
@@ -72,7 +72,7 @@ public class RegisterController {
                 safeName, safeName, safeName, safeEmail, safePass, safePhone
         );
 
-        // Asynchronous REST call to prevent freezing JavaFX UI thread
+        // Asynchronous REST call targeting /api/auth/register
         CompletableFuture.supplyAsync(() -> {
             try {
                 return ApiClient.post("/api/auth/register", payload);

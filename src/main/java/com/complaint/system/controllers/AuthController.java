@@ -44,10 +44,17 @@ public class AuthController {
         String fullName = request.getOrDefault("fullName",
                 request.getOrDefault("full_name",
                         request.getOrDefault("name", "Enterprise Client")));
-        String phone = request.getOrDefault("phone", "");
+        String phone = request.getOrDefault("phone", "").trim();
         String role = request.getOrDefault("role", "CUSTOMER");
 
-        // Enforce whitelist and client domain restriction
+        // Mandatory Phone Validation
+        if (phone.isEmpty()) {
+            Map<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Phone number is mandatory for enterprise registration");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+        }
+
+        // Whitelist and Enterprise Domain Restriction
         if (!ALLOWED_CLIENT_EMAILS.contains(email) && !email.endsWith("@client.com")) {
             Map<String, String> errorResponse = new HashMap<>();
             errorResponse.put("error", "Access Denied: Registration is restricted to pre-approved enterprise client accounts only.");
@@ -59,8 +66,8 @@ public class AuthController {
             newUser.setFullName(fullName);
             newUser.setEmail(email);
             newUser.setPassword(password);
+            newUser.setPhone(phone);
             newUser.setRole(role);
-            // set phone if User model supports it: newUser.setPhone(phone);
 
             boolean created = userService.register(newUser);
             if (!created) {
