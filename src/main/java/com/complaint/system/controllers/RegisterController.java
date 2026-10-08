@@ -1,19 +1,22 @@
 package com.complaint.system.controllers;
 
-import com.complaint.system.util.ApiClient;
 import javafx.application.Platform;
+import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
+import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.stage.Stage;
 
 import java.io.IOException;
+import java.net.URI;
 import java.net.URL;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 
 public class RegisterController {
 
@@ -21,111 +24,134 @@ public class RegisterController {
     @FXML private TextField emailField;
     @FXML private TextField phoneField;
     @FXML private PasswordField passwordField;
-    @FXML private PasswordField confirmPasswordField;
-    @FXML private Label messageLabel;
+    @FXML private Button registerButton;
+    @FXML private Label statusLabel;
 
-    // Authorized enterprise client emails
-    private static final Set<String> ALLOWED_CLIENT_EMAILS = Set.of(
-            "customer@client.com",
-            "client@client.com",
+    // CLOSED WHITELIST - STRICT ZERO-TRUST
+    private static final Set<String> ALLOWED_EXACT_EMAILS = Set.of(
             "anmol.client@gmail.com",
             "client.acme@gmail.com",
             "client.bmc@gmail.com",
-            "client@acmecorp.com"
+            "client@acmecorp.com",
+            "customer@client.com",
+            "client@client.com"
     );
 
+    private final HttpClient httpClient = HttpClient.newHttpClient();
+
     @FXML
-    protected void handleRegister() {
-        String name = nameField.getText().trim();
-        String email = emailField.getText().trim().toLowerCase();
-        String phone = phoneField.getText().trim();
-        String password = passwordField.getText();
-        String confirm = confirmPasswordField.getText();
+    public void initialize() {
+        if (statusLabel != null) {
+            statusLabel.setVisible(false);
+        }
+    }
 
-        // Basic & Mandatory Phone Validation
-        if (name.isEmpty() || !email.contains("@") || phone.isEmpty() || password.length() < 6) {
-            showMessage("Invalid details. All fields including Phone are required & Password > 6 chars.", true);
+    @FXML
+    private void handleRegister(ActionEvent event) {
+        String name = nameField.getText() == null ? "" : nameField.getText().trim();
+        String email = emailField.getText() == null ? "" : emailField.getText().trim().toLowerCase();
+        String phone = phoneField.getText() == null ? "" : phoneField.getText().trim();
+        String password = passwordField.getText() == null ? "" : passwordField.getText().trim();
+
+        // 1. COMPULSORY FIELDS CHECK
+        if (name.isEmpty() || email.isEmpty() || phone.isEmpty() || password.isEmpty()) {
+            displayStatus("Security Error: All fields are compulsory.", true);
             return;
         }
 
-        // Whitelist & Enterprise Domain Restriction
-        if (!ALLOWED_CLIENT_EMAILS.contains(email) && !email.endsWith("@client.com")) {
-            showMessage("Registration restricted: Only authorized enterprise client emails are permitted.", true);
+        // 2. PHONE DIGITS CHECK
+        if (!phone.matches("^\\d{10}$")) {
+            displayStatus("Validation Error: Phone must be exactly 10 numeric digits.", true);
             return;
         }
 
-        if (!password.equals(confirm)) {
-            showMessage("Passwords do not match.", true);
+        // 3. PASSWORD LENGTH CHECK
+        if (password.length() < 6) {
+            displayStatus("Validation Error: Password must be at least 6 characters.", true);
             return;
         }
 
-        showMessage("Registering account...", false);
+        // 4. CLOSED WHITELIST REJECTION
+        if (!ALLOWED_EXACT_EMAILS.contains(email)) {
+            displayStatus("Access Denied: Email not authorized for registration.", true);
+            return;
+        }
 
-        // Escape JSON quotes
-        String safeName = name.replace("\"", "\\\"");
-        String safeEmail = email.replace("\"", "\\\"");
-        String safePass = password.replace("\"", "\\\"");
-        String safePhone = phone.replace("\"", "\\\"");
+        // 5. CALL SPRING BOOT API ASYNCHRONOUSLY
+        displayStatus("Validating and registering...", false);
+        registerButton.setDisable(true);
 
-        String payload = String.format(
-                "{\"name\":\"%s\", \"fullName\":\"%s\", \"full_name\":\"%s\", \"email\":\"%s\", \"password\":\"%s\", \"phone\":\"%s\", \"role\":\"CUSTOMER\"}",
-                safeName, safeName, safeName, safeEmail, safePass, safePhone
+        String jsonPayload = String.format(
+                "{\"name\":\"%s\",\"email\":\"%s\",\"phone\":\"%s\",\"password\":\"%s\"}",
+                escapeJson(name), escapeJson(email), escapeJson(phone), escapeJson(password)
         );
 
-        // Asynchronous REST call targeting /api/auth/register
-        CompletableFuture.supplyAsync(() -> {
-            try {
-                return ApiClient.post("/api/auth/register", payload);
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-        }).thenAccept(response -> Platform.runLater(() -> {
-            if (response.statusCode() == 200 || response.statusCode() == 201) {
-                showMessage("Account created! Redirecting to login...", false);
-                handleBackToLogin();
-            } else {
-                showMessage("Registration failed: " + response.body(), true);
-            }
-        })).exceptionally(err -> {
-            Platform.runLater(() -> {
-                showMessage("Connection error: Is backend running?", true);
-            });
-            return null;
-        });
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create("http://localhost:8080/api/auth/register"))
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(jsonPayload))
+                .build();
+
+        httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
+                .thenAccept(response -> Platform.runLater(() -> {
+                    registerButton.setDisable(false);
+                    if (response.statusCode() == 200) {
+                        displayStatus("Registration successful! Redirecting to login...", false);
+                        navigateToLogin(event);
+                    } else if (response.statusCode() == 403) {
+                        displayStatus("Access Denied: Email is not authorized.", true);
+                    } else if (response.statusCode() == 409) {
+                        displayStatus("Account already exists. Please log in.", true);
+                    } else {
+                        displayStatus("Registration failed. Please check your credentials.", true);
+                    }
+                }))
+                .exceptionally(ex -> {
+                    Platform.runLater(() -> {
+                        registerButton.setDisable(false);
+                        displayStatus("Server error: Ensure Spring Boot backend is active.", true);
+                    });
+                    return null;
+                });
     }
 
     @FXML
-    protected void handleBackToLogin() {
-        navigateTo("/login.fxml", "Login - ICRS System", 700, 650);
+    private void handleBackToLogin(ActionEvent event) {
+        navigateToLogin(event);
     }
 
-    private void navigateTo(String fxmlPath, String title, int width, int height) {
+    private void navigateToLogin(ActionEvent event) {
         try {
-            URL resource = getClass().getResource(fxmlPath);
+            URL resource = getClass().getResource("/CompanyCMS_Login.fxml");
             if (resource == null) {
-                resource = getClass().getResource("/com/complaint/system" + fxmlPath);
+                resource = getClass().getResource("/com/complaint/system/CompanyCMS_Login.fxml");
             }
             if (resource == null) {
-                showMessage("Error: Resource file not found: " + fxmlPath, true);
+                displayStatus("Login view template not found.", true);
                 return;
             }
 
             FXMLLoader loader = new FXMLLoader(resource);
             Parent root = loader.load();
-
-            Stage stage = (Stage) nameField.getScene().getWindow();
-            stage.setScene(new Scene(root, width, height));
-            stage.setTitle(title);
+            Stage stage = (Stage) ((Node) event.getSource()).getScene().getWindow();
+            stage.setScene(new Scene(root, 1180, 760));
+            stage.setTitle("CompanyCMS - Intelligent Complaint Resolution System");
             stage.show();
         } catch (IOException e) {
             e.printStackTrace();
-            showMessage("Error loading screen: " + fxmlPath, true);
+            displayStatus("Failed to open Login screen.", true);
         }
     }
 
-    private void showMessage(String text, boolean isError) {
-        messageLabel.setText(text);
-        messageLabel.setStyle(isError ? "-fx-text-fill: #e74c3c; -fx-font-weight: bold;" : "-fx-text-fill: #2ecc71; -fx-font-weight: bold;");
-        messageLabel.setVisible(true);
+    private void displayStatus(String message, boolean isError) {
+        if (statusLabel != null) {
+            statusLabel.setText(message);
+            statusLabel.setStyle(isError ? "-fx-text-fill: #f43f5e;" : "-fx-text-fill: #4fd1c5;");
+            statusLabel.setVisible(true);
+        }
+    }
+
+    private String escapeJson(String raw) {
+        return raw.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 }

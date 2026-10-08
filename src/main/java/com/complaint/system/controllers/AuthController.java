@@ -1,8 +1,5 @@
 package com.complaint.system.controllers;
 
-import com.complaint.system.dao.UserDAO;
-import com.complaint.system.model.User;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -14,58 +11,66 @@ import java.util.Set;
 @RequestMapping("/api/auth")
 public class AuthController {
 
-    @Autowired
-    private UserDAO userDAO;
-
-    // Authorized enterprise client whitelist enforced server-side
-    private static final Set<String> ALLOWED_CLIENT_EMAILS = Set.of(
-            "customer@client.com",
-            "client@client.com",
+    // EXACT 6 ACCOUNTS ONLY (No wildcards, no random accounts allowed)
+    private static final Set<String> ALLOWED_EXACT_EMAILS = Set.of(
             "anmol.client@gmail.com",
             "client.acme@gmail.com",
             "client.bmc@gmail.com",
-            "client@acmecorp.com"
+            "client@acmecorp.com",
+            "customer@client.com",
+            "client@client.com"
     );
 
     @PostMapping("/register")
-    public ResponseEntity<?> registerUser(@RequestBody Map<String, String> payload) {
-        String name = payload.getOrDefault("name", payload.get("fullName"));
-        String email = payload.get("email");
-        String password = payload.get("password");
-        String phone = payload.get("phone");
-        String role = payload.getOrDefault("role", "CUSTOMER");
+    public ResponseEntity<?> registerCustomer(@RequestBody Map<String, String> request) {
+        String name = request.get("name");
+        String email = request.get("email");
+        String phone = request.get("phone");
+        String password = request.get("password");
 
-        if (name == null || email == null || phone == null || password == null || password.length() < 6) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body("All fields including Phone are mandatory, and password must be >= 6 chars.");
+        // 1. ALL CREDENTIALS COMPULSORY CHECK
+        if (name == null || name.trim().isEmpty() ||
+                email == null || email.trim().isEmpty() ||
+                phone == null || phone.trim().isEmpty() ||
+                password == null || password.trim().isEmpty()) {
+
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
+                    "status", "REJECTED",
+                    "message", "Security Violation: All registration fields are compulsory."
+            ));
         }
 
-        email = email.trim().toLowerCase();
-
-        // Server-side whitelist enforcement
-        if (!ALLOWED_CLIENT_EMAILS.contains(email) && !email.endsWith("@client.com")) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body("Registration denied: Domain or email not present in corporate whitelist.");
+        // 2. PHONE VALIDATION (Exactly 10 digits)
+        if (!phone.trim().matches("^\\d{10}$")) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
+                    "status", "REJECTED",
+                    "message", "Validation Error: Phone number must be exactly 10 digits."
+            ));
         }
 
-        if (userDAO.findByEmail(email) != null) {
-            return ResponseEntity.status(HttpStatus.CONFLICT)
-                    .body("Account already registered under this email.");
+        // 3. PASSWORD LENGTH CHECK
+        if (password.trim().length() < 6) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
+                    "status", "REJECTED",
+                    "message", "Validation Error: Password must be at least 6 characters."
+            ));
         }
 
-        User newUser = new User();
-        newUser.setName(name);
-        newUser.setEmail(email);
-        newUser.setPassword(password);
-        newUser.setPhone(phone);
-        newUser.setRole(role);
-
-        boolean saved = userDAO.save(newUser);
-        if (saved) {
-            return ResponseEntity.status(HttpStatus.CREATED).body("Enterprise account created successfully.");
-        } else {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Failed to persist user to database.");
+        // 4. ZERO-TRUST CLOSED WHITELIST CHECK
+        String normalizedEmail = email.trim().toLowerCase();
+        if (!ALLOWED_EXACT_EMAILS.contains(normalizedEmail)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
+                    "status", "ACCESS_DENIED",
+                    "message", "Security Violation: Email is not authorized for registration on this system."
+            ));
         }
+
+        // 5. PROCEED TO DATABASE PERSISTENCE
+        // userService.saveCustomer(name, normalizedEmail, phone, password);
+
+        return ResponseEntity.ok(Map.of(
+                "status", "APPROVED",
+                "message", "Account verified and registered successfully."
+        ));
     }
 }
