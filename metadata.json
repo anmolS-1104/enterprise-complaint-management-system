@@ -1,0 +1,6 @@
+{
+  "name": "ICRS Enterprise Incident & Complaint Resolution System",
+  "description": "Enterprise AI triage agent for incident and customer complaint resolution, categorizing priority, sentiment, and structured JSON action workflows.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
