@@ -271,86 +271,107 @@ export function zeroClickRuleRouter(
 ) {
   const lower = complaint.toLowerCase();
 
-  // 1. Department & Queue Detection
+  // 1. Department & Queue Detection according to NLP Routing Rules
   let assigned_queue:
+    | 'Finance & Payroll'
+    | 'Technical Support'
+    | 'Customer Care'
+    | 'Logistics Desk'
     | 'Cloud & Technical Infrastructure'
     | 'Finance & ERP Operations'
     | 'Global Customer Care & DWP Support'
-    | 'Hardware & Asset Logistics' = 'Global Customer Care & DWP Support';
+    | 'Hardware & Asset Logistics' = 'Customer Care';
   let assigned_lead: 'Elena Vance' | 'Alex Rivera' | 'Sarah Jenkins' | 'Marcus Vance' = 'Sarah Jenkins';
   let assigned_agent_id: '#AGT-FIN-01' | '#AGT-TECH-01' | '#AGT-CARE-01' | '#AGT-LOG-01' = '#AGT-CARE-01';
   let confidence_score = 0.95;
 
-  // Check Hardware & Asset Logistics
+  // Rule 1: Finance & Payroll (billing, invoice, charged, charged twice, payment, refund, deduction, fee, transaction, payroll)
   if (
-    lower.includes('hardware') ||
-    lower.includes('laptop') ||
-    lower.includes('monitor') ||
-    lower.includes('docking') ||
-    lower.includes('delivery') ||
-    lower.includes('shipping') ||
-    lower.includes('shipment') ||
-    lower.includes('tracking') ||
-    lower.includes('damaged') ||
-    lower.includes('warehouse') ||
-    lower.includes('courier') ||
-    lower.includes('in transit') ||
-    lower.includes('package') ||
-    lower.includes('asset')
-  ) {
-    assigned_queue = 'Hardware & Asset Logistics';
-    assigned_lead = 'Marcus Vance';
-    assigned_agent_id = '#AGT-LOG-01';
-    confidence_score = 0.98;
-  }
-  // Check Finance & ERP Operations
-  else if (
+    lower.includes('billing') ||
+    lower.includes('invoice') ||
+    lower.includes('charged') ||
+    lower.includes('charged twice') ||
+    lower.includes('payment') ||
+    lower.includes('refund') ||
+    lower.includes('deduction') ||
+    lower.includes('fee') ||
+    lower.includes('transaction') ||
     lower.includes('payroll') ||
     lower.includes('salary') ||
     lower.includes('erp') ||
     lower.includes('payout') ||
     lower.includes('tax') ||
-    lower.includes('invoice') ||
-    lower.includes('billing') ||
-    lower.includes('charge') ||
-    lower.includes('refund') ||
-    lower.includes('credit card') ||
     lower.includes('expense') ||
     lower.includes('overcharge') ||
-    lower.includes('vendor') ||
+    lower.includes('credit card') ||
     lower.includes('payment gateway')
   ) {
-    assigned_queue = 'Finance & ERP Operations';
+    assigned_queue = 'Finance & Payroll';
     assigned_lead = 'Elena Vance';
     assigned_agent_id = '#AGT-FIN-01';
     confidence_score = 0.99;
   }
-  // Check Cloud & Technical Infrastructure
+  // Rule 2: Technical Support (bug, error, 500, crash, api, timeout, database, connection, nullpointer, slow latency, server)
   else if (
-    lower.includes('downtime') ||
+    lower.includes('error 500') ||
+    lower.includes('500') ||
     lower.includes('502') ||
     lower.includes('504') ||
-    lower.includes('500') ||
-    lower.includes('404') ||
+    lower.includes('crash') ||
+    lower.includes('bug') ||
     lower.includes('server') ||
+    lower.includes('timeout') ||
     lower.includes('api') ||
     lower.includes('database') ||
-    lower.includes('replication') ||
+    lower.includes('connection') ||
+    lower.includes('nullpointer') ||
+    lower.includes('slow latency') ||
+    lower.includes('latency') ||
+    lower.includes('downtime') ||
+    lower.includes('outage') ||
+    lower.includes('cluster') ||
     lower.includes('jvm') ||
     lower.includes('heap') ||
-    lower.includes('latency') ||
-    lower.includes('cluster') ||
-    lower.includes('crash') ||
-    lower.includes('outage') ||
     lower.includes('patch') ||
-    lower.includes('defect') ||
-    lower.includes('production') ||
-    lower.includes('sso')
+    lower.includes('defect')
   ) {
-    assigned_queue = 'Cloud & Technical Infrastructure';
+    assigned_queue = 'Technical Support';
     assigned_lead = 'Alex Rivera';
     assigned_agent_id = '#AGT-TECH-01';
-    confidence_score = 0.97;
+    confidence_score = 0.98;
+  }
+  // Rule 3: Logistics Desk (delivery, shipment, courier, dispatch, tracking, delayed, package, transit, address change, hardware)
+  else if (
+    lower.includes('delivery') ||
+    lower.includes('courier') ||
+    lower.includes('shipment') ||
+    lower.includes('shipping') ||
+    lower.includes('tracking') ||
+    lower.includes('delayed') ||
+    lower.includes('delayed package') ||
+    lower.includes('dispatch') ||
+    lower.includes('package') ||
+    lower.includes('transit') ||
+    lower.includes('address change') ||
+    lower.includes('hardware') ||
+    lower.includes('laptop') ||
+    lower.includes('monitor') ||
+    lower.includes('docking') ||
+    lower.includes('damaged') ||
+    lower.includes('warehouse') ||
+    lower.includes('asset')
+  ) {
+    assigned_queue = 'Logistics Desk';
+    assigned_lead = 'Marcus Vance';
+    assigned_agent_id = '#AGT-LOG-01';
+    confidence_score = 0.98;
+  }
+  // Rule 4: Customer Care (account, general feedback, cancellation, service complaint, membership, consultation, general inquiries)
+  else {
+    assigned_queue = 'Customer Care';
+    assigned_lead = 'Sarah Jenkins';
+    assigned_agent_id = '#AGT-CARE-01';
+    confidence_score = 0.95;
   }
 
   // 2. ITIL v4 Urgency & Impact Matrix (P1 to P4)
@@ -427,11 +448,11 @@ export function zeroClickRuleRouter(
   const incident_summary = `Incident parsed under ITIL v4: ${assigned_queue} flagged with ${itil_priority} impacting corporate operations.`;
 
   const recommended_smartsheet_action =
-    assigned_queue === 'Cloud & Technical Infrastructure'
+    assigned_queue === 'Technical Support'
       ? 'Execute ITIL P1/P2 runbook: Alex Rivera to inspect JVM telemetry, isolate failover replica cluster, and deploy container rollback.'
-      : assigned_queue === 'Finance & ERP Operations'
+      : assigned_queue === 'Finance & Payroll'
       ? 'Execute ERP reconciliation SOP: Elena Vance to audit transaction ledger, review ERP gateway webhook logs, and issue adjusting credit memo.'
-      : assigned_queue === 'Hardware & Asset Logistics'
+      : assigned_queue === 'Logistics Desk'
       ? 'Execute asset replenishment SOP: Marcus Vance to query courier carrier API, file damaged transit claim, and trigger expedited warehouse dispatch.'
       : 'Execute DWP customer care workflow: Sarah Jenkins to contact enterprise client representative, resolve SSO profile hurdle, and confirm SLA compliance.';
 
@@ -500,11 +521,11 @@ export function zeroClickRuleRouter(
 
     // UI Field Aliases
     category:
-      assigned_queue === 'Finance & ERP Operations'
+      assigned_queue === 'Finance & Payroll'
         ? 'BILLING'
-        : assigned_queue === 'Cloud & Technical Infrastructure'
+        : assigned_queue === 'Technical Support'
         ? 'TECHNICAL'
-        : assigned_queue === 'Hardware & Asset Logistics'
+        : assigned_queue === 'Logistics Desk'
         ? 'GENERAL'
         : 'ACCOUNT',
     priority: itil_priority,

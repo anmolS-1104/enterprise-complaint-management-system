@@ -6,7 +6,6 @@ import {
   Lock,
   LogOut,
   Sparkles,
-  Code,
   CheckCircle2,
 } from 'lucide-react';
 
@@ -14,14 +13,12 @@ interface HeaderProps {
   currentUser: AppUser | null;
   onSignOut: () => void;
   onOpenSignInModal?: () => void;
-  onToggleStateInspector?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   currentUser,
   onSignOut,
   onOpenSignInModal,
-  onToggleStateInspector,
 }) => {
   return (
     <header className="border-b border-[#1a3454] bg-[#091424]/95 backdrop-blur-md sticky top-0 z-40 shadow-[0_4px_20px_rgba(0,0,0,0.35)]">
@@ -50,18 +47,6 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Right: Quick-access action button "👤 Sign In / Register" or Active User session */}
           <div className="flex items-center gap-3">
-            {onToggleStateInspector && (
-              <button
-                type="button"
-                onClick={onToggleStateInspector}
-                className="px-2.5 py-1.5 text-xs font-mono font-medium text-[#94a3b8] hover:text-[#4fd1c5] bg-[#112238] hover:bg-[#152a45] border border-[#1a3454] hover:border-[#4fd1c5]/40 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
-                title="View CompanyCMS JSON State Controller"
-              >
-                <Code className="w-3.5 h-3.5 text-[#4fd1c5]" />
-                <span className="hidden md:inline">State JSON</span>
-              </button>
-            )}
-
             {currentUser ? (
               <div className="flex items-center gap-3">
                 <div className="text-right hidden sm:block">

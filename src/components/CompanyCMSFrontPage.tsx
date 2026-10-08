@@ -80,8 +80,6 @@ export const CompanyCMSFrontPage: React.FC<CompanyCMSFrontPageProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [showJsonInspector, setShowJsonInspector] = useState(false);
-  const [copied, setCopied] = useState(false);
 
   // 4. JSON AUDIT & TRIAGE OUTPUT SCHEMA (Exact required schema)
   const [auditSchema, setAuditSchema] = useState<CompanyCMSAuditSchema>({
@@ -102,12 +100,6 @@ export const CompanyCMSFrontPage: React.FC<CompanyCMSFrontPageProps> = ({
     if (onAuditChange) {
       onAuditChange(newAudit);
     }
-  };
-
-  const handleCopyJson = () => {
-    navigator.clipboard.writeText(JSON.stringify(auditSchema, null, 2));
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
   };
 
   const handleSelectTab = (tab: 'CUSTOMER' | 'AGENT') => {
@@ -804,44 +796,6 @@ export const CompanyCMSFrontPage: React.FC<CompanyCMSFrontPageProps> = ({
                 ))}
               </div>
             </div>
-          </div>
-        )}
-      </div>
-
-      {/* 4. JSON Audit & Triage Output Schema Inspector */}
-      <div className="w-full max-w-xl mt-6">
-        <button
-          type="button"
-          onClick={() => setShowJsonInspector(!showJsonInspector)}
-          className="w-full py-2.5 px-4 rounded-xl bg-[#112238] border border-[#1a3454] hover:border-[#4fd1c5]/40 text-[#94a3b8] hover:text-[#4fd1c5] text-xs font-mono font-medium flex items-center justify-between transition-colors cursor-pointer"
-        >
-          <span className="flex items-center gap-2">
-            <Code className="w-4 h-4 text-[#4fd1c5]" />
-            JSON Audit & Triage Output Schema Controller
-          </span>
-          <span className="text-[11px] text-[#4fd1c5]">
-            {showJsonInspector ? '▲ Collapse Schema' : '▼ Expand Schema'}
-          </span>
-        </button>
-
-        {showJsonInspector && (
-          <div className="mt-3 p-4 rounded-xl bg-[#091424] border border-[#1a3454] shadow-inner">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold text-[#4fd1c5] font-mono">
-                REAL-TIME AUDIT & VIEW ACCESS STATE (JSON):
-              </span>
-              <button
-                type="button"
-                onClick={handleCopyJson}
-                className="px-2.5 py-1 text-[11px] bg-[#112238] hover:bg-[#152a45] text-[#94a3b8] hover:text-[#4fd1c5] border border-[#1a3454] rounded flex items-center gap-1 cursor-pointer"
-              >
-                {copied ? <Check className="w-3 h-3 text-[#4fd1c5]" /> : <Copy className="w-3 h-3" />}
-                <span>{copied ? 'Copied' : 'Copy JSON'}</span>
-              </button>
-            </div>
-            <pre className="text-[11px] font-mono text-teal-300/90 overflow-x-auto p-3 bg-[#060e1a] rounded-lg border border-[#1a3454] leading-relaxed">
-              {JSON.stringify(auditSchema, null, 2)}
-            </pre>
           </div>
         )}
       </div>

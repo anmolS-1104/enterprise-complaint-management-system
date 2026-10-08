@@ -9,7 +9,11 @@ export type BMCQueue =
   | 'Cloud & Technical Infrastructure'
   | 'Finance & ERP Operations'
   | 'Global Customer Care & DWP Support'
-  | 'Hardware & Asset Logistics';
+  | 'Hardware & Asset Logistics'
+  | 'Finance & Payroll'
+  | 'Technical Support'
+  | 'Customer Care'
+  | 'Logistics Desk';
 
 export type AssignedDepartment =
   | BMCQueue
@@ -148,7 +152,13 @@ export interface AppUser {
   deskLead?: AssignedLead;
 }
 
-export type TicketStatus = 'NEW' | 'TRIAGED' | 'IN_PROGRESS' | 'RESOLVED' | 'ESCALATED';
+export type TicketStatus = 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED' | 'NEW' | 'TRIAGED' | 'ESCALATED';
+
+export interface TicketAuditEntry {
+  timestamp: string;
+  actor: string;
+  action: string;
+}
 
 export interface IncidentTicket {
   id: string;
@@ -159,6 +169,11 @@ export interface IncidentTicket {
   complaintText: string;
   createdAt: string;
   status: TicketStatus;
+  subject?: string;
+  category?: string;
+  internalNotes?: string;
+  auditLog?: TicketAuditEntry[];
+  slaBreached?: boolean;
   triageResult?: ZeroClickNLPTriageResult;
   rawJsonString?: string;
   latencyMs?: number;

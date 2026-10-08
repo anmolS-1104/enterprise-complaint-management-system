@@ -1,21 +1,13 @@
-<<<<<<< HEAD
-# ======================
-# IntelliJ / IDE files
-# ======================
-.idea/
-*.iml
-*.iws
-out/
-.ai/
-
 # ======================
 # Node / Frontend
 # ======================
 node_modules/
+build/
+dist/
+coverage/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-package-lock.json
 
 # ======================
 # Java / Maven / Spring Boot
@@ -27,6 +19,15 @@ target/
 *.ear
 
 # ======================
+# IntelliJ / IDE files
+# ======================
+.idea/
+*.iml
+*.iws
+out/
+.ai/
+
+# ======================
 # Logs and temp files
 # ======================
 *.log
@@ -36,20 +37,11 @@ complaints_log.txt
 # ======================
 # Environment / Secrets
 # ======================
-.env
+.env*
+!.env.example
 
 # ======================
 # OS files
 # ======================
 .DS_Store
 Thumbs.db
-=======
-node_modules/
-build/
-dist/
-coverage/
-.DS_Store
-*.log
-.env*
-!.env.example
->>>>>>> 877121348a48e8bbe1de61f640bf6116ab9bce47
