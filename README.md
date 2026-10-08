@@ -1,157 +1,79 @@
-# 🗂️ Intelligent Enterprise Complaint Management System
+# CompanyCMS: Intelligent Incident & Complaint Resolution System (ICRS)
 
-A multi-tier IT service management (ITSM) and complaint triage platform engineered in Java 21. The platform combines a Spring Boot REST API backend with a responsive JavaFX desktop client, providing automated ticket intake, rule-based department routing, SLA priority assignment, and persistent storage via AWS RDS MySQL.
-
----
-
-## 📋 Table of Contents
-
-- [Overview](#overview)
-- [Key Features](#key-features)
-- [Tech Stack](#tech-stack)
-- [System Architecture](#system-architecture)
-- [Project Structure](#-project-structure)
-- [Database Schema](#database-schema)
-- [API Endpoints](#api-endpoints)
-- [Configuration & Environment](#configuration--environment)
-- [Getting Started](#getting-started)
+An enterprise-grade, ITIL-aligned complaint management and resolution platform. The system combines Spring Boot REST services, JavaFX desktop clients, and Google Gemini NLP triage to automate ticket categorization, enforce zero-trust authentication, and streamline agent resolution workflows.
 
 ---
 
-## Overview
+## Core Capabilities
 
-The **Enterprise Complaint Management System** automates the lifecycle of internal and client service requests. By leveraging automated classification engines and department-specific polymorphism, tickets are ingested, assigned a severity level, routed to designated department agents, and tracked until resolution.
-
-- **Automated Routing**: Categorizes complaints into Technical, Finance, Logistics, or Customer Care queues.
-- **Role-Based Workflows**: Tailored interfaces for both general users filing issues and department agents managing resolution lifecycles.
-- **Centralized Cloud Persistence**: Backed by a cloud-managed AWS RDS MySQL instance (`complaints_db`).
-- **Audit & Analytics**: Integrated event logging and graphical performance analytics for department metrics.
+- **Strict Zero-Trust Access Control**: Enforces an exact closed-list roster of 6 authorized customer accounts alongside 4 pre-provisioned support desks. Form validation mandates full name, verified email, a 10-digit phone number, and a secure password.
+- **NLP Intent Classification & Auto-Routing**: Extracts complaint sentiment and semantic intent to automatically classify urgency (P1 to P4) and dispatch tickets directly to the responsible functional desk without manual intervention.
+- **Unified Agent Command Center**: Department-isolated workspace featuring live queue monitoring, breached SLA timers, automated AI resolution drafts, and standardized resolution presets.
+- **Enterprise Multi-Tier Architecture**: Spring Boot backend connected to MySQL persistence, desktop client views built with JavaFX/FXML, and cloud synchronization with Google AI Studio.
 
 ---
 
-## Key Features
+## ITIL Service Desk Structure
 
-- **Classification Engine**: Parses ticket context to infer category, target department, and urgency tiers (`LOW`, `NORMAL`, `HIGH`, `URGENT`).
-- **Polymorphic Department Handlers**: Object-oriented department abstractions (`TechnicalDepartment`, `FinanceDepartment`, `LogisticsDepartment`) applying specialized SLA thresholds.
-- **Multi-View JavaFX Client**: FXML-based screens for authentication, ticket registration, submission history, agent resolution queues, and department analytics.
-- **RESTful Integration**: Decoupled client-server communication using Spring Boot REST controllers and DTO serialization.
-- **Secure Data Access**: Custom DAO (Data Access Object) layer with connection pooling to AWS RDS MySQL.
+Incoming tickets are classified and dispatched across four functional departments:
 
----
-
-## Tech Stack
-
-### Core Technologies
-| Technology | Component | Description |
-| :--- | :--- | :--- |
-| **Java 21 (LTS)** | Core Platform | Modern Java LTS runtime leveraging records and enhanced concurrency |
-| **Spring Boot 3.x** | Backend Runtime | RESTful microservice layer exposing administrative and ingestion endpoints |
-| **JavaFX 21** | Presentation Tier | Modern desktop GUI built using FXML, custom CSS, and controller bindings |
-| **MySQL 8.0** | Cloud Database | Managed AWS RDS instance for multi-tenant data storage |
-| **Apache Maven** | Build Automation | Dependency management, lifecycle phases, and packaging |
-| **Docker** | Containerization | Multi-stage image build targeted for container execution |
+| Service Desk | Desk ID[cite: 5] | Desk Lead[cite: 5] | Desk Email | Primary Intent Triggers |
+| :--- | :---: | :--- | :--- | :--- |
+| **Finance & Payroll**[cite: 5] | `#AGT-FIN-01`[cite: 5] | Elena Vance[cite: 5] | `finance@agent.company.com` | Billing discrepancies, duplicate transactions, refund requests, tax deduction issues |
+| **Technical Support** | `#AGT-TECH-01` | Alex Rivera | `tech@agent.company.com` | HTTP 500 errors, system crashes, timeout exceptions, database replication failures |
+| **Logistics Desk** | `#AGT-LOG-01` | Marcus Vance | `logistics@agent.company.com` | Courier delays, tracking issues, damaged packaging, transit failures |
+| **Customer Care** | `#AGT-CARE-01` | Sarah Jenkins | `care@agent.company.com` | Account settings, general inquiries, policy clarifications, profile updates |
 
 ---
 
-## System Architecture
+## Access Credentials Roster
+
+### 1. Whitelisted Customer Accounts
+Only these 6 exact corporate customer accounts are authorized to register or log in to submit tickets:
+
+| Customer Name | Authorized Email | Phone Number | Password |
+| :--- | :--- | :---: | :---: |
+| **Anmol** | `anmol.client@gmail.com` | `1234567891` | `client123` |
+| **Acme** | `client.acme@gmail.com` | `1234567891` | `client123` |
+| **BMC** | `client.bmc@gmail.com` | `1234567891` | `client123` |
+| **Sam** | `client@acmecorp.com` | `1234567891` | `client123` |
+| **Standard Customer** | `customer@client.com` | `9876543210` | `client123` |
+| **Enterprise Client** | `client@client.com` | `9876543211` | `client123` |
+
+### 2. Pre-Provisioned Agent Desks
+Support agent accounts cannot self-register; access is restricted to direct credential sign-in:
+
+- **Finance & Payroll**: `finance@agent.company.com` / `finance123`
+- **Technical Support**: `tech@agent.company.com` / `tech123`
+- **Customer Care**: `care@agent.company.com` / `care123`
+- **Logistics Desk**: `logistics@agent.company.com` / `logistics123`
+
+---
+
+## Technical Stack
+
+- **Backend Runtime**: Java 21, Spring Boot (Web, JDBC, Security)
+- **Database**: MySQL 8.0
+- **Desktop Frontend**: JavaFX 21, FXML
+- **AI & NLP Integration**: Google Gemini API via Google AI Studio
+- **Containerization**: Docker
+- **Build Tool**: Apache Maven
+
+---
+
+## Repository Layout
 
 ```text
-┌─────────────────────────────────────────────────────────────┐
-│                    Presentation Tier                        │
-│   JavaFX 21 Desktop GUI (FXML + CSS)                        │
-│   - Login & Registration (AuthController)                   │
-│   - Ticket Ingestion & History (ComplaintController)        │
-│   - Department Agent Desk & Analytics (AgentDashboard)      │
-└──────────────────────────────┬──────────────────────────────┘
-                               │ HTTP / JSON (via ApiClient)
-                               ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    Application Tier                         │
-│   Spring Boot 3.x REST Services (:8080)                     │
-│   - ComplaintRestController / AuthController                │
-│   - ClassificationEngine & ResolutionManager                │
-│   - Polymorphic Department Models (Tech/Finance/Logistics)  │
-└──────────────────────────────┬──────────────────────────────┘
-                               │ JDBC / SQL Wire Protocol (Port 3306)
-                               ▼
-┌─────────────────────────────────────────────────────────────┐
-│                      Data Tier                              │
-│   AWS RDS MySQL 8.0 (ap-south-1)                            │
-│   Database: complaints_db                                   │
-│   - Tables: users, complaints, agents                       │
-└─────────────────────────────────────────────────────────────┘
-
-
-enterprise-complaint-management-system/
-├── .ai/
-│   └── mcp/
-│       └── mcp.json                         # Model Context Protocol / AI configs
-├── .github/
-│   └── workflows/
-│       └── deploy.yml                       # CI/CD deployment pipeline
 ├── src/
 │   ├── main/
 │   │   ├── java/com/complaint/system/
-│   │   │   ├── controllers/                 # JavaFX UI & Spring REST controllers
-│   │   │   │   ├── AgentController.java
-│   │   │   │   ├── AgentDashboardController.java
-│   │   │   │   ├── AnalyticsController.java
-│   │   │   │   ├── AuthController.java
-│   │   │   │   ├── ComplaintController.java
-│   │   │   │   ├── ComplaintRestController.java
-│   │   │   │   ├── HistoryController.java
-│   │   │   │   ├── LoginController.java
-│   │   │   │   ├── RegisterController.java
-│   │   │   │   └── UserController.java
-│   │   │   ├── dao/                         # Data Access Objects & JDBC implementations
-│   │   │   │   ├── AgentDAO.java
-│   │   │   │   ├── AgentDAOImpl.java
-│   │   │   │   ├── ComplaintDAO.java
-│   │   │   │   ├── ComplaintDAOImpl.java
-│   │   │   │   ├── UserDAO.java
-│   │   │   │   └── UserDAOImpl.java
-│   │   │   ├── dto/                         # Data Transfer Objects
-│   │   │   │   ├── ComplaintDTO.java
-│   │   │   │   ├── LoginRequest.java
-│   │   │   │   └── LoginResponse.java
-│   │   │   ├── model/                       # Domain models & Department polymorphism
-│   │   │   │   ├── Agent.java
-│   │   │   │   ├── Complaint.java
-│   │   │   │   ├── Department.java
-│   │   │   │   ├── FinanceDepartment.java
-│   │   │   │   ├── LogisticsDepartment.java
-│   │   │   │   ├── TechnicalDepartment.java
-│   │   │   │   └── User.java
-│   │   │   ├── service/                     # Business logic & classification triage
-│   │   │   │   ├── AgentService.java
-│   │   │   │   ├── ClassificationEngine.java
-│   │   │   │   ├── ComplaintService.java
-│   │   │   │   ├── ResolutionManager.java
-│   │   │   │   └── UserService.java
-│   │   │   ├── util/                        # Helpers, networking & database connections
-│   │   │   │   ├── ApiClient.java
-│   │   │   │   ├── ComplaintApp.java
-│   │   │   │   ├── DBConnection.java
-│   │   │   │   ├── FileLogger.java
-│   │   │   │   └── Session.java
-│   │   │   ├── BackendApplication.java      # Spring Boot application entry point
-│   │   │   ├── ClientApp.java               # JavaFX client lifecycle manager
-│   │   │   └── Launcher.java                # Main bootstrap executable
-│   │   └── resources/                       # JavaFX FXML layouts, styling & config
-│   │       ├── agent_dashboard.fxml
-│   │       ├── analytics.fxml
-│   │       ├── application.properties       # Spring & RDS MySQL datasource config
-│   │       ├── dashboard.fxml
-│   │       ├── history.fxml
-│   │       ├── login.fxml
-│   │       ├── register.fxml
-│   │       ├── schema.sql
-│   │       └── styles.css
-│   └── test/
-│       └── java/com/complaint/system/service/
-│           └── ComplaintServiceTest.java    # Automated unit tests
-├── .gitignore
-├── Dockerfile                               # Cloud Run containerization
-├── pom.xml                                  # Maven dependencies & build lifecycle
-└── README.md                                # Project documentation
-
+│   │   │   ├── controllers/      # Spring Boot REST & JavaFX UI controllers
+│   │   │   ├── services/         # NLP triage logic & SLA calculations
+│   │   │   ├── models/           # Domain entity models (User, Ticket, Audit)
+│   │   │   └── dao/              # MySQL persistence and data access objects
+│   │   └── resources/
+│   │       ├── CompanyCMS_Login.fxml
+│   │       └── application.properties
+├── Dockerfile                    # Multi-stage Java 21 container image
+├── pom.xml                       # Maven build configuration
+└── README.md
