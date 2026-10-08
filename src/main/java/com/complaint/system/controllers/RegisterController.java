@@ -12,6 +12,7 @@ import javafx.stage.Stage;
 import java.io.IOException;
 import java.net.URL;
 import java.net.http.HttpResponse;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 public class RegisterController {
@@ -23,10 +24,20 @@ public class RegisterController {
     @FXML private PasswordField confirmPasswordField;
     @FXML private Label messageLabel;
 
+    // Approved client accounts authorized to register
+    private static final Set<String> ALLOWED_CLIENT_EMAILS = Set.of(
+            "customer@client.com",
+            "client@client.com",
+            "anmol.client@gmail.com",
+            "client.acme@gmail.com",
+            "client.bmc@gmail.com",
+            "client@acmecorp.com"
+    );
+
     @FXML
     protected void handleRegister() {
         String name = nameField.getText().trim();
-        String email = emailField.getText().trim();
+        String email = emailField.getText().trim().toLowerCase();
         String phone = phoneField.getText().trim();
         String password = passwordField.getText();
         String confirm = confirmPasswordField.getText();
@@ -36,6 +47,13 @@ public class RegisterController {
             showMessage("Invalid details. Email must be valid & Password > 6 chars.", true);
             return;
         }
+
+        // Whitelist & Enterprise Domain Restriction
+        if (!ALLOWED_CLIENT_EMAILS.contains(email) && !email.endsWith("@client.com")) {
+            showMessage("Registration restricted: Only authorized enterprise client emails are permitted.", true);
+            return;
+        }
+
         if (!password.equals(confirm)) {
             showMessage("Passwords do not match.", true);
             return;
@@ -57,7 +75,7 @@ public class RegisterController {
         // Asynchronous REST call to prevent freezing JavaFX UI thread
         CompletableFuture.supplyAsync(() -> {
             try {
-                return ApiClient.post("/api/users/register", payload);
+                return ApiClient.post("/api/auth/register", payload);
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }

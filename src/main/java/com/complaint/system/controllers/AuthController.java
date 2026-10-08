@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -19,6 +20,64 @@ public class AuthController {
 
     private final UserService userService = new UserService();
     private final AgentService agentService = new AgentService();
+
+    // Whitelist of authorized customer/client emails permitted to register
+    private static final Set<String> ALLOWED_CLIENT_EMAILS = Set.of(
+            "customer@client.com",
+            "client@client.com",
+            "anmol.client@gmail.com",
+            "client.acme@gmail.com",
+            "client.bmc@gmail.com",
+            "client@acmecorp.com"
+    );
+
+    @PostMapping("/register")
+    public ResponseEntity<?> register(@RequestBody Map<String, String> request) {
+        if (request == null || request.get("email") == null || request.get("password") == null) {
+            Map<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Email and Password are required");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+        }
+
+        String email = request.get("email").trim().toLowerCase();
+        String password = request.get("password").trim();
+        String fullName = request.getOrDefault("fullName",
+                request.getOrDefault("full_name",
+                        request.getOrDefault("name", "Enterprise Client")));
+        String phone = request.getOrDefault("phone", "");
+        String role = request.getOrDefault("role", "CUSTOMER");
+
+        // Enforce whitelist and client domain restriction
+        if (!ALLOWED_CLIENT_EMAILS.contains(email) && !email.endsWith("@client.com")) {
+            Map<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Access Denied: Registration is restricted to pre-approved enterprise client accounts only.");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorResponse);
+        }
+
+        try {
+            User newUser = new User();
+            newUser.setFullName(fullName);
+            newUser.setEmail(email);
+            newUser.setPassword(password);
+            newUser.setRole(role);
+            // set phone if User model supports it: newUser.setPhone(phone);
+
+            boolean created = userService.register(newUser);
+            if (!created) {
+                Map<String, String> errorResponse = new HashMap<>();
+                errorResponse.put("error", "User already exists or registration failed");
+                return ResponseEntity.status(HttpStatus.CONFLICT).body(errorResponse);
+            }
+
+            Map<String, String> successResponse = new HashMap<>();
+            successResponse.put("message", "Client registered successfully");
+            return ResponseEntity.status(HttpStatus.CREATED).body(successResponse);
+        } catch (Exception e) {
+            Map<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Registration error: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest request) {
