@@ -427,7 +427,7 @@ export const BMCHelixGateway: React.FC<BMCHelixGatewayProps> = ({ onLoginSuccess
                         spellCheck={false}
                         required
                         className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-blue-500 font-sans"
-                        placeholder="Full Name"
+                        placeholder="Enter your full name"
                       />
                     </div>
                     <div>
@@ -466,10 +466,10 @@ export const BMCHelixGateway: React.FC<BMCHelixGatewayProps> = ({ onLoginSuccess
                       spellCheck={false}
                       required
                       className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-blue-500 font-mono"
-                      placeholder="user@client.com"
+                      placeholder="name@company.com"
                     />
                     <span className="text-[10px] text-slate-400 mt-0.5 block">
-                      Must end in @client.com or match verified whitelist.
+                      Verified corporate credentials only.
                     </span>
                   </div>
 
@@ -490,7 +490,7 @@ export const BMCHelixGateway: React.FC<BMCHelixGatewayProps> = ({ onLoginSuccess
                         required
                         maxLength={10}
                         className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-blue-500 font-mono"
-                        placeholder="10-digit number"
+                        placeholder="10-digit mobile number"
                       />
                       <span className="text-[10px] text-slate-400 mt-0.5 block">
                         Strictly numeric, exactly 10 digits.
@@ -634,7 +634,7 @@ export const BMCHelixGateway: React.FC<BMCHelixGatewayProps> = ({ onLoginSuccess
                       spellCheck={false}
                       required
                       className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-emerald-500 font-mono"
-                      placeholder="agent-id@company.com"
+                      placeholder="name@company.com"
                     />
                   </div>
 

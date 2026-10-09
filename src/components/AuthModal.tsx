@@ -230,7 +230,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     required
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="Marcus Vance"
+                    placeholder="Enter your full name"
                     className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:bg-white focus:outline-hidden focus:ring-1 focus:ring-slate-800"
                   />
                 </div>
@@ -241,7 +241,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     required
                     value={company}
                     onChange={(e) => setCompany(e.target.value)}
-                    placeholder="FinGlobal Technologies"
+                    placeholder="Organization Name"
                     className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:bg-white focus:outline-hidden focus:ring-1 focus:ring-slate-800"
                   />
                 </div>
@@ -253,7 +253,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               <label className="text-slate-600 font-medium flex items-center justify-between">
                 <span>Corporate Email</span>
                 {mode === 'CLIENT_REGISTER' && (
-                  <span className="text-[10px] text-slate-400">@client.com or Whitelist</span>
+                  <span className="text-[10px] text-slate-400">*Compulsory</span>
                 )}
               </label>
               <div className="relative">
@@ -263,11 +263,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder={
-                    mode === 'AGENT_LOGIN'
-                      ? 'agent@icrs-support.com'
-                      : 'customer@client.com'
-                  }
+                  placeholder="name@company.com"
                   className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:bg-white focus:outline-hidden focus:ring-1 focus:ring-slate-800"
                 />
               </div>
@@ -287,7 +283,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     required
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    placeholder="9876543210"
+                    placeholder="10-digit mobile number"
                     maxLength={14}
                     className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:bg-white focus:outline-hidden focus:ring-1 focus:ring-slate-800"
                   />

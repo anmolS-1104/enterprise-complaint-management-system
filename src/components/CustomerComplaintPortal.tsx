@@ -1,19 +1,24 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { AppUser, IncidentTicket, ZeroClickNLPTriageResult } from '../types/icrs';
 import {
   User,
   LogOut,
   Send,
   Sparkles,
-  CheckCircle2,
-  Clock,
-  Building,
+  Paperclip,
+  Mic,
+  MicOff,
   FileText,
+  Clock,
+  CheckCircle2,
   AlertCircle,
-  HelpCircle,
-  Shield,
+  Inbox,
   ChevronDown,
   ChevronUp,
+  X,
+  Layers,
+  Activity,
+  ShieldCheck,
 } from 'lucide-react';
 
 interface CustomerComplaintPortalProps {
@@ -23,160 +28,274 @@ interface CustomerComplaintPortalProps {
   onTicketCreated: (newTicket: IncidentTicket) => void;
 }
 
+interface AttachedFile {
+  name: string;
+  size: string;
+}
+
 export const CustomerComplaintPortal: React.FC<CustomerComplaintPortalProps> = ({
   currentUser,
   onSignOut,
   tickets,
   onTicketCreated,
 }) => {
-  // Form fields: Category, Subject, Detailed Description, Priority
-  const [category, setCategory] = useState<string>('Billing & Payroll Discrepancy');
-  const [subject, setSubject] = useState<string>('');
-  const [description, setDescription] = useState<string>('');
-  const [priority, setPriority] = useState<'P1_CRITICAL' | 'P2_HIGH' | 'P3_MEDIUM' | 'P4_LOW'>('P3_MEDIUM');
-
+  // Single large textarea for describing issue or request
+  const [complaintText, setComplaintText] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [expandedTicketId, setExpandedTicketId] = useState<string | null>(null);
-  const [submissionSuccess, setSubmissionSuccess] = useState<{
+  const [submissionFeedback, setSubmissionFeedback] = useState<{
     ticketId: string;
-    desk: string;
-    lead: string;
+    dept: string;
+    category: string;
     priority: string;
-    summary: string;
   } | null>(null);
 
-  // Real-time NLP Text Classifier for auto-assigned target desk
-  const realTimeTriage = useMemo(() => {
-    const combined = `${subject} ${description}`.toLowerCase();
-    if (!combined.trim()) {
-      return {
-        assignedDesk: 'Customer Care',
-        lead: 'Sarah Jenkins',
-        agentId: '#AGT-CARE-01',
-        inferredPriority: priority,
-        isDetected: false,
-      };
+  // Auxiliary attachments: Documents & Voice Note
+  const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const [voiceNoteAttached, setVoiceNoteAttached] = useState<boolean>(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Expanded ticket details in overview
+  const [expandedTicketId, setExpandedTicketId] = useState<string | null>(null);
+
+  // ==================================================
+  // NLP AUTO-TRIAGE & REAL-TIME PREDICTION ENGINE
+  // ==================================================
+  const nlpAnalysis = useMemo(() => {
+    const raw = complaintText.trim().toLowerCase();
+
+    // 1. Sentiment Detection
+    const frustratedKeywords = [
+      'urgent', 'broken', 'furious', 'unacceptable', 'down', 'fail', 'failure',
+      'lost money', 'terrible', 'frustrated', 'critical', 'immediately', 'asap',
+      'disaster', 'crash', 'freeze', 'error 500', 'charged twice', 'outage',
+      'overcharged', 'breach', 'stuck', 'deadlock', 'severe', 'horrible', 'emergency',
+    ];
+    const positiveKeywords = [
+      'thank', 'thanks', 'appreciate', 'great', 'good', 'excellent', 'helpful', 'resolved',
+    ];
+
+    let sentiment: 'FRUSTRATED' | 'POSITIVE' | 'NEUTRAL' = 'NEUTRAL';
+    if (frustratedKeywords.some((kw) => raw.includes(kw))) {
+      sentiment = 'FRUSTRATED';
+    } else if (positiveKeywords.some((kw) => raw.includes(kw))) {
+      sentiment = 'POSITIVE';
     }
 
-    // Rule 1: Finance & Payroll
-    if (
-      combined.includes('billing') ||
-      combined.includes('invoice') ||
-      combined.includes('charged') ||
-      combined.includes('charged twice') ||
-      combined.includes('payment') ||
-      combined.includes('refund') ||
-      combined.includes('deduction') ||
-      combined.includes('fee') ||
-      combined.includes('transaction') ||
-      combined.includes('payroll') ||
-      combined.includes('salary') ||
-      combined.includes('erp') ||
-      combined.includes('tax') ||
-      combined.includes('expense')
-    ) {
-      return {
-        assignedDesk: 'Finance & Payroll',
-        lead: 'Elena Vance',
-        agentId: '#AGT-FIN-01',
-        inferredPriority: priority,
-        isDetected: true,
-      };
+    // 2. Department & Desk Routing
+    // Criteria:
+    // - Finance & Payroll: billing, invoice, charged, payment, refund, deduction, fee, transaction, payroll
+    // - Technical Support: bug, error, 500, crash, api, timeout, database, connection, nullpointer, slow latency
+    // - Logistics Desk: delivery, shipment, courier, dispatch, tracking, delayed, package, transit, address change
+    // - Customer Care: account, general feedback, cancellation, service complaint, membership, consultation
+
+    let predictedDept: 'Finance & Payroll' | 'Technical Support' | 'Logistics Desk' | 'Customer Care' = 'Customer Care';
+    let category = 'General Inquiry';
+    let priorityTier: 'P1 Critical' | 'P2 High' | 'P3 Medium' | 'P4 Low' = 'P3 Medium';
+
+    const hasFinance = [
+      'billing', 'invoice', 'charged', 'charged twice', 'payment', 'refund',
+      'deduction', 'fee', 'transaction', 'payroll', 'salary', 'ledger', 'erp',
+      'tax', 'overcharged', 'debit', 'discrepancy', 'credit card',
+    ].some((kw) => raw.includes(kw));
+
+    const hasTech = [
+      'bug', 'error', '500', '502', '504', 'crash', 'api', 'timeout',
+      'database', 'connection', 'nullpointer', 'slow latency', 'latency',
+      'server', 'heap', 'outage', 'service down', 'cluster', 'exception',
+    ].some((kw) => raw.includes(kw));
+
+    const hasLogistics = [
+      'delivery', 'shipment', 'courier', 'dispatch', 'tracking', 'delayed',
+      'delayed package', 'package', 'transit', 'address change', 'hardware',
+      'laptop', 'docking', 'warehouse', 'damaged casing',
+    ].some((kw) => raw.includes(kw));
+
+    if (hasFinance) {
+      predictedDept = 'Finance & Payroll';
+      category = raw.includes('payroll') || raw.includes('salary')
+        ? 'Payroll & Compensation'
+        : 'Billing Discrepancy';
+    } else if (hasTech) {
+      predictedDept = 'Technical Support';
+      category = raw.includes('500') || raw.includes('crash') || raw.includes('outage') || raw.includes('service down')
+        ? 'System Bug / Outage'
+        : 'API / Infrastructure Failure';
+    } else if (hasLogistics) {
+      predictedDept = 'Logistics Desk';
+      category = raw.includes('delay') || raw.includes('tracking')
+        ? 'Shipment Issue'
+        : 'Hardware Asset Dispatch';
+    } else {
+      predictedDept = 'Customer Care';
+      category = raw.includes('account') || raw.includes('sso') || raw.includes('password')
+        ? 'Account Management'
+        : 'General Inquiry';
     }
 
-    // Rule 2: Technical Support
-    if (
-      combined.includes('error 500') ||
-      combined.includes('500') ||
-      combined.includes('502') ||
-      combined.includes('504') ||
-      combined.includes('crash') ||
-      combined.includes('bug') ||
-      combined.includes('server') ||
-      combined.includes('timeout') ||
-      combined.includes('api') ||
-      combined.includes('database') ||
-      combined.includes('connection') ||
-      combined.includes('nullpointer') ||
-      combined.includes('slow latency') ||
-      combined.includes('latency') ||
-      combined.includes('downtime') ||
-      combined.includes('outage')
-    ) {
-      return {
-        assignedDesk: 'Technical Support',
-        lead: 'Alex Rivera',
-        agentId: '#AGT-TECH-01',
-        inferredPriority: priority,
-        isDetected: true,
-      };
+    // 3. Priority Tier Determination
+    // P1_CRITICAL (service down, major financial loss, 500, crash, outage)
+    const isP1 = [
+      'service down', 'major financial loss', 'outage', '500', 'crash',
+      'charged twice', 'data loss', 'emergency', 'catastrophic', 'cluster down',
+    ].some((kw) => raw.includes(kw));
+
+    // P2_HIGH (high impact, impaired workflow, bug, error, timeout, delayed, refund, payroll)
+    const isP2 = [
+      'high impact', 'impaired', 'bug', 'error', '502', '504', 'timeout',
+      'delayed', 'refund', 'payroll', 'deduction', 'stuck', 'broken',
+    ].some((kw) => raw.includes(kw));
+
+    // P4_LOW (minor, feedback, consultation, general feedback)
+    const isP4 = [
+      'feedback', 'consultation', 'minor', 'question', 'general feedback',
+      'onboarding', 'suggestion', 'non-technical',
+    ].some((kw) => raw.includes(kw));
+
+    if (isP1) {
+      priorityTier = 'P1 Critical';
+    } else if (isP2) {
+      priorityTier = 'P2 High';
+    } else if (isP4) {
+      priorityTier = 'P4 Low';
+    } else {
+      priorityTier = 'P3 Medium';
     }
 
-    // Rule 3: Logistics Desk
-    if (
-      combined.includes('delivery') ||
-      combined.includes('courier') ||
-      combined.includes('shipment') ||
-      combined.includes('shipping') ||
-      combined.includes('tracking') ||
-      combined.includes('delayed') ||
-      combined.includes('delayed package') ||
-      combined.includes('dispatch') ||
-      combined.includes('package') ||
-      combined.includes('transit') ||
-      combined.includes('address change') ||
-      combined.includes('hardware') ||
-      combined.includes('laptop') ||
-      combined.includes('monitor')
-    ) {
-      return {
-        assignedDesk: 'Logistics Desk',
-        lead: 'Marcus Vance',
-        agentId: '#AGT-LOG-01',
-        inferredPriority: priority,
-        isDetected: true,
-      };
-    }
-
-    // Rule 4: Customer Care (default)
     return {
-      assignedDesk: 'Customer Care',
-      lead: 'Sarah Jenkins',
-      agentId: '#AGT-CARE-01',
-      inferredPriority: priority,
-      isDetected: true,
+      sentiment,
+      predictedDept,
+      category,
+      priorityTier,
     };
-  }, [subject, description, priority]);
+  }, [complaintText]);
 
   // Customer's Tickets
   const customerTickets = useMemo(() => {
-    return tickets.filter(
-      (t) =>
-        t.customerName.toLowerCase().includes(currentUser.name.toLowerCase()) ||
-        (t.companyName && currentUser.company && t.companyName === currentUser.company) ||
-        t.source === 'In-App Portal' ||
-        t.source === 'BMC DWP Portal'
-    );
+    return tickets.filter((t) => {
+      if (t.customerEmail && t.customerEmail.toLowerCase() === currentUser.email.toLowerCase()) {
+        return true;
+      }
+      if (t.customerName && currentUser.name) {
+        const tName = t.customerName.toLowerCase().trim();
+        const uName = currentUser.name.toLowerCase().trim();
+        if (tName === uName || tName.includes(uName) || uName.includes(tName)) {
+          return true;
+        }
+      }
+      return false;
+    });
   }, [tickets, currentUser]);
 
+  // Metric counters
+  const openCount = customerTickets.filter(
+    (t) => t.status === 'OPEN' || t.status === 'NEW' || t.status === 'TRIAGED'
+  ).length;
+  const inProgressCount = customerTickets.filter(
+    (t) => t.status === 'IN_PROGRESS' || t.status === 'ESCALATED'
+  ).length;
+  const resolvedCount = customerTickets.filter(
+    (t) => t.status === 'RESOLVED' || t.status === 'CLOSED'
+  ).length;
+
+  // Handle Document Attachment
+  const handleAttachClick = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const newFiles: AttachedFile[] = Array.from(e.target.files).map((f) => ({
+        name: f.name,
+        size: `${(f.size / 1024).toFixed(1)} KB`,
+      }));
+      setAttachedFiles((prev) => [...prev, ...newFiles]);
+    }
+  };
+
+  const handleRemoveFile = (index: number) => {
+    setAttachedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // Handle Voice Note Recording
+  const handleToggleVoiceNote = () => {
+    if (isRecording) {
+      // Stop recording
+      if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+      setIsRecording(false);
+      setVoiceNoteAttached(true);
+    } else {
+      // Start recording
+      setIsRecording(true);
+      setRecordingSeconds(0);
+      setVoiceNoteAttached(false);
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingSeconds((sec) => sec + 1);
+      }, 1000);
+    }
+  };
+
+  const handleRemoveVoiceNote = () => {
+    if (isRecording && recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      setIsRecording(false);
+    }
+    setVoiceNoteAttached(false);
+    setRecordingSeconds(0);
+  };
+
+  // Submit Complaint
   const handleSubmitComplaint = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!description.trim() || !subject.trim() || isSubmitting) return;
+    if (!complaintText.trim() || isSubmitting) return;
 
     setIsSubmitting(true);
-    setSubmissionSuccess(null);
+    setSubmissionFeedback(null);
 
     const ticketId = `TCK-${Math.floor(10000 + Math.random() * 90000)}`;
 
+    const { predictedDept, category, priorityTier, sentiment } = nlpAnalysis;
+
+    // Convert priorityTier string to ITIL priority
+    const itilPriority =
+      priorityTier === 'P1 Critical'
+        ? 'P1 - CRITICAL'
+        : priorityTier === 'P2 High'
+        ? 'P2 - HIGH'
+        : priorityTier === 'P4 Low'
+        ? 'P4 - LOW'
+        : 'P3 - MEDIUM';
+
+    const slaHours =
+      priorityTier === 'P1 Critical' ? 1.0 : priorityTier === 'P2 High' ? 4.0 : priorityTier === 'P4 Low' ? 24.0 : 8.0;
+
+    let leadName = 'Sarah Jenkins';
+    let agentId = '#AGT-CARE-01';
+    if (predictedDept === 'Finance & Payroll') {
+      leadName = 'Elena Vance';
+      agentId = '#AGT-FIN-01';
+    } else if (predictedDept === 'Technical Support') {
+      leadName = 'Alex Rivera';
+      agentId = '#AGT-TECH-01';
+    } else if (predictedDept === 'Logistics Desk') {
+      leadName = 'Marcus Vance';
+      agentId = '#AGT-LOG-01';
+    }
+
     try {
+      // Try backend triage endpoint
       const response = await fetch('/api/triage', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          complaint: `${subject}\n\n${description}`,
+          complaint: complaintText.trim(),
           ticketId,
           metadata: {
-            current_view: 'CLIENT_COMPLAINT_BOX',
+            current_view: 'CUSTOMER_PORTAL',
             authenticated_role: 'CORPORATE_CLIENT',
             operator_identity: currentUser.email,
           },
@@ -186,419 +305,555 @@ export const CustomerComplaintPortal: React.FC<CustomerComplaintPortalProps> = (
       const resData = await response.json();
       const triageResult: ZeroClickNLPTriageResult = resData.data;
 
-      const assignedQueue =
-        triageResult?.incident_record?.assigned_queue ||
-        realTimeTriage.assignedDesk;
+      const finalQueue =
+        triageResult?.incident_record?.assigned_queue || predictedDept;
 
       const newTicket: IncidentTicket = {
         id: ticketId,
         customerName: currentUser.name,
-        companyName: currentUser.company || 'Enterprise Corporate Client',
+        customerEmail: currentUser.email,
+        companyName: currentUser.company || 'Enterprise Client',
         tier: 'Enterprise Platinum',
         source: 'In-App Portal',
-        subject: subject.trim(),
+        subject:
+          triageResult?.incident_record?.incident_summary ||
+          complaintText.trim().slice(0, 60),
         category,
-        complaintText: description.trim(),
+        complaintText: complaintText.trim(),
         createdAt: 'Just now',
         status: 'OPEN',
-        assignedTeam: assignedQueue,
-        slaRemainingHours: priority === 'P1_CRITICAL' ? 1.0 : priority === 'P2_HIGH' ? 4.0 : 8.0,
+        assignedTeam: finalQueue,
+        slaRemainingHours: slaHours,
         triageResult,
         auditLog: [
           {
             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             actor: `${currentUser.name} (${currentUser.email})`,
-            action: `Submitted complaint via Customer Portal. Target desk auto-routed to ${assignedQueue}.`,
+            action: `Submitted complaint via Customer Portal. Target desk auto-routed to ${finalQueue} via NLP.`,
           },
         ],
       };
 
       onTicketCreated(newTicket);
-
-      setSubmissionSuccess({
+      setSubmissionFeedback({
         ticketId,
-        desk: assignedQueue,
-        lead: triageResult?.incident_record?.assigned_lead || realTimeTriage.lead,
-        priority: priority,
-        summary:
-          triageResult?.incident_record?.incident_summary ||
-          `Ticket logged and auto-routed to ${assignedQueue}.`,
+        dept: finalQueue,
+        category,
+        priority: priorityTier,
       });
-
-      // Clear form
-      setSubject('');
-      setDescription('');
-    } catch (err: any) {
+      setComplaintText('');
+      setAttachedFiles([]);
+      setVoiceNoteAttached(false);
+    } catch {
       // Offline fallback
       const fallbackTicket: IncidentTicket = {
         id: ticketId,
         customerName: currentUser.name,
-        companyName: currentUser.company || 'Enterprise Corporate Client',
+        customerEmail: currentUser.email,
+        companyName: currentUser.company || 'Enterprise Client',
         tier: 'Enterprise Platinum',
         source: 'In-App Portal',
-        subject: subject.trim(),
+        subject: complaintText.trim().slice(0, 60),
         category,
-        complaintText: description.trim(),
+        complaintText: complaintText.trim(),
         createdAt: 'Just now',
         status: 'OPEN',
-        assignedTeam: realTimeTriage.assignedDesk,
-        slaRemainingHours: priority === 'P1_CRITICAL' ? 1.0 : 4.0,
+        assignedTeam: predictedDept,
+        slaRemainingHours: slaHours,
+        triageResult: {
+          incident_record: {
+            assigned_queue: predictedDept as any,
+            assigned_lead: leadName as any,
+            assigned_agent_id: agentId as any,
+            itil_priority: itilPriority,
+            detected_sentiment: sentiment as any,
+            incident_summary: complaintText.trim().slice(0, 90),
+            recommended_smartsheet_action: `Auto-routed to ${leadName} (${agentId})`,
+            dwp_user_notification: `Your request has been logged and assigned to ${predictedDept}.`,
+          },
+        },
         auditLog: [
           {
             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             actor: `${currentUser.name} (${currentUser.email})`,
-            action: `Ticket submitted and auto-routed to ${realTimeTriage.assignedDesk}.`,
+            action: `Ticket logged and auto-routed to ${predictedDept}.`,
           },
         ],
       };
 
       onTicketCreated(fallbackTicket);
-
-      setSubmissionSuccess({
+      setSubmissionFeedback({
         ticketId,
-        desk: realTimeTriage.assignedDesk,
-        lead: realTimeTriage.lead,
-        priority: priority,
-        summary: `Incident logged under ITIL v4 and routed to ${realTimeTriage.assignedDesk}.`,
+        dept: predictedDept,
+        category,
+        priority: priorityTier,
       });
-
-      setSubject('');
-      setDescription('');
+      setComplaintText('');
+      setAttachedFiles([]);
+      setVoiceNoteAttached(false);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const getPriorityBadge = (prio: string) => {
-    if (prio.includes('P1') || prio.includes('CRITICAL')) {
+  const getPriorityBadgeClass = (priority: string) => {
+    if (priority.includes('P1') || priority.includes('Critical')) {
       return 'bg-rose-500/15 text-rose-300 border-rose-500/30';
     }
-    if (prio.includes('P2') || prio.includes('HIGH')) {
+    if (priority.includes('P2') || priority.includes('High')) {
       return 'bg-amber-500/15 text-amber-300 border-amber-500/30';
     }
-    if (prio.includes('P4') || prio.includes('LOW')) {
+    if (priority.includes('P4') || priority.includes('Low')) {
       return 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30';
     }
     return 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30';
   };
 
+  const getSentimentPillClass = (sentiment: string) => {
+    if (sentiment === 'FRUSTRATED') {
+      return 'bg-rose-500/15 text-rose-300 border-rose-500/30 animate-pulse';
+    }
+    if (sentiment === 'POSITIVE') {
+      return 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30';
+    }
+    return 'bg-slate-700/50 text-slate-300 border-slate-600/40';
+  };
+
   return (
     <div className="space-y-6 w-full animate-fadeIn">
       {/* ==================================================
-          1. TOP BAR WITH CUSTOMER NAME, EMAIL, AND SIGN OUT
+          1. HEADER
+          "CompanyCMS [CUSTOMER PORTAL] - Intelligent Complaint Resolution System"
+          with Customer Name, Avatar, and Sign Out
       ================================================== */}
-      <div className="bg-[#112238] border border-[#1a3454] rounded-2xl p-5 sm:p-6 shadow-[0_0_35px_rgba(79,209,197,0.06)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <header className="bg-[#112238] border border-[#1a3454] rounded-2xl p-5 sm:p-6 shadow-[0_0_35px_rgba(79,209,197,0.06)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-xl bg-[#091424] border border-[#1a3454] flex items-center justify-center text-[#4fd1c5] shadow-[0_0_15px_rgba(79,209,197,0.15)] shrink-0">
-            <User className="w-6 h-6" />
+          {/* Customer Avatar */}
+          <div className="w-12 h-12 rounded-xl bg-[#091424] border border-[#1a3454] flex items-center justify-center text-[#4fd1c5] shadow-[0_0_15px_rgba(79,209,197,0.15)] font-bold font-mono text-base shrink-0">
+            {currentUser.name ? currentUser.name.slice(0, 2).toUpperCase() : <User className="w-6 h-6" />}
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-[#4fd1c5] bg-[#4fd1c5]/10 px-2 py-0.5 rounded border border-[#4fd1c5]/30">
-                Corporate Customer Portal
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[10px] font-extrabold uppercase tracking-widest text-[#4fd1c5] bg-[#4fd1c5]/10 px-2 py-0.5 rounded border border-[#4fd1c5]/30">
+                CUSTOMER PORTAL
               </span>
-              <span className="text-[11px] text-[#94a3b8] font-mono">Whitelisted Account</span>
+              <span className="text-xs text-[#94a3b8] font-mono">Whitelisted Account</span>
             </div>
-            <h1 className="text-lg sm:text-xl font-extrabold text-white mt-0.5 flex items-center gap-2">
-              <span>{currentUser.name}</span>
+            <h1 className="text-lg sm:text-xl font-extrabold text-white tracking-tight mt-0.5">
+              CompanyCMS [CUSTOMER PORTAL] - Intelligent Complaint Resolution System
             </h1>
-            <p className="text-xs text-[#94a3b8] font-mono mt-0.5">
-              {currentUser.email} {currentUser.phone && `· ${currentUser.phone}`} · {currentUser.company || 'Enterprise Client'}
+            <p className="text-xs text-[#94a3b8] font-mono mt-0.5 flex flex-wrap items-center gap-2">
+              <span className="text-white font-medium">{currentUser.name}</span>
+              <span>·</span>
+              <span>{currentUser.email}</span>
+              {currentUser.phone && (
+                <>
+                  <span>·</span>
+                  <span>{currentUser.phone}</span>
+                </>
+              )}
             </p>
           </div>
         </div>
 
+        {/* Sign Out Button */}
         <button
           type="button"
           onClick={onSignOut}
-          className="px-4 py-2 text-xs font-semibold text-rose-300 hover:text-white bg-rose-500/10 hover:bg-rose-600/30 border border-rose-500/30 hover:border-rose-400 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer self-end sm:self-auto"
+          className="px-4 py-2.5 text-xs font-semibold text-rose-300 hover:text-white bg-rose-500/10 hover:bg-rose-600/30 border border-rose-500/30 hover:border-rose-400 rounded-xl transition-all flex items-center gap-2 cursor-pointer self-end sm:self-auto shrink-0 shadow-xs"
         >
           <LogOut className="w-3.5 h-3.5" />
           <span>Sign Out</span>
         </button>
-      </div>
+      </header>
 
-      {/* ==================================================
-          2. SUBMIT NEW COMPLAINT FORM
-      ================================================== */}
-      <div className="bg-[#112238] border border-[#1a3454] rounded-2xl p-6 sm:p-8 shadow-[0_0_35px_rgba(79,209,197,0.06)] space-y-6">
-        <div className="pb-4 border-b border-[#1a3454] flex items-start justify-between">
-          <div>
-            <h2 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
-              <FileText className="w-5 h-5 text-[#4fd1c5]" />
-              Submit New Complaint
-            </h2>
-            <p className="text-xs text-[#94a3b8] mt-1">
-              Provide incident details below. Natural Language Processing (NLP) automatically routes your complaint to the dedicated service desk.
-            </p>
+      {/* Main Two-Card Streamlined Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* ==================================================
+            2. LEFT CARD: "Log a Service Request"
+            with "AI Triage & Guardrails" badge
+        ================================================== */}
+        <div className="lg:col-span-6 bg-[#112238] border border-[#1a3454] rounded-2xl p-6 sm:p-7 shadow-[0_0_35px_rgba(79,209,197,0.06)] flex flex-col justify-between">
+          <div className="space-y-5">
+            {/* Card Header & Badge */}
+            <div className="flex items-center justify-between pb-4 border-b border-[#1a3454]">
+              <div className="flex items-center gap-2.5">
+                <FileText className="w-5 h-5 text-[#4fd1c5]" />
+                <h2 className="text-base sm:text-lg font-bold text-white tracking-tight">
+                  Log a Service Request
+                </h2>
+              </div>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-[#4fd1c5]/10 text-[#4fd1c5] border border-[#4fd1c5]/30">
+                <Sparkles className="w-3 h-3" />
+                AI Triage & Guardrails
+              </span>
+            </div>
+
+            {/* Submission Feedback Alert */}
+            {submissionFeedback && (
+              <div className="p-4 rounded-xl bg-[#4fd1c5]/10 border border-[#4fd1c5]/40 text-white space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-[#4fd1c5]" />
+                    <span className="text-xs font-bold text-[#4fd1c5]">
+                      Request Registered: #{submissionFeedback.ticketId}
+                    </span>
+                  </div>
+                  <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border ${getPriorityBadgeClass(submissionFeedback.priority)}`}>
+                    {submissionFeedback.priority}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-200">
+                  Auto-routed to <strong>{submissionFeedback.dept}</strong> ({submissionFeedback.category}).
+                </p>
+              </div>
+            )}
+
+            {/* Complaint Form */}
+            <form onSubmit={handleSubmitComplaint} className="space-y-4">
+              {/* Textarea Header with Live Sentiment indicator pill */}
+              <div className="flex items-center justify-between">
+                <label
+                  htmlFor="complaint-textarea"
+                  className="text-xs font-bold uppercase tracking-wider text-[#94a3b8]"
+                >
+                  Describe the issue or request in detail
+                </label>
+                {/* Live Sentiment indicator pill */}
+                <span
+                  className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold border transition-all ${getSentimentPillClass(
+                    nlpAnalysis.sentiment
+                  )}`}
+                >
+                  Sentiment: {nlpAnalysis.sentiment}
+                </span>
+              </div>
+
+              {/* Single Large Textarea */}
+              <div className="relative">
+                <textarea
+                  id="complaint-textarea"
+                  rows={6}
+                  value={complaintText}
+                  onChange={(e) => setComplaintText(e.target.value)}
+                  placeholder="Describe the issue or request in detail (e.g. Critical 500 error on payment webhook, duplicate invoice charge, or delayed hardware shipment)..."
+                  required
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  spellCheck={false}
+                  className="w-full bg-[#091424] border border-[#1a3454] focus:border-[#4fd1c5] focus:outline-hidden text-xs sm:text-sm text-white p-4 rounded-xl placeholder:text-slate-500 transition-colors leading-relaxed resize-y min-h-[140px]"
+                />
+              </div>
+
+              {/* Auxiliary Buttons: Attach Documents & Record Voice Note */}
+              <div className="flex flex-wrap items-center gap-2.5 pt-1">
+                {/* Hidden File Input */}
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileChange}
+                  multiple
+                  className="hidden"
+                  autoComplete="off"
+                />
+
+                <button
+                  type="button"
+                  onClick={handleAttachClick}
+                  className="px-3 py-1.5 rounded-lg bg-[#091424] hover:bg-[#152a45] text-slate-300 hover:text-white border border-[#1a3454] text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <Paperclip className="w-3.5 h-3.5 text-[#4fd1c5]" />
+                  <span>Attach Documents</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleToggleVoiceNote}
+                  className={`px-3 py-1.5 rounded-lg border text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer ${
+                    isRecording
+                      ? 'bg-rose-500/20 text-rose-300 border-rose-500/40 animate-pulse'
+                      : voiceNoteAttached
+                      ? 'bg-teal-500/10 text-[#4fd1c5] border-[#4fd1c5]/40'
+                      : 'bg-[#091424] hover:bg-[#152a45] text-slate-300 hover:text-white border-[#1a3454]'
+                  }`}
+                >
+                  {isRecording ? (
+                    <>
+                      <MicOff className="w-3.5 h-3.5 text-rose-400" />
+                      <span>Recording... ({recordingSeconds}s)</span>
+                    </>
+                  ) : (
+                    <>
+                      <Mic className="w-3.5 h-3.5 text-[#4fd1c5]" />
+                      <span>Record Voice Note</span>
+                    </>
+                  )}
+                </button>
+
+                {/* Show attached files pills */}
+                {attachedFiles.map((file, idx) => (
+                  <span
+                    key={idx}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-[#091424] border border-[#1a3454] text-[11px] text-slate-300 font-mono"
+                  >
+                    <Paperclip className="w-3 h-3 text-[#4fd1c5]" />
+                    <span className="truncate max-w-[120px]">{file.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveFile(idx)}
+                      className="text-slate-400 hover:text-rose-400 ml-1 cursor-pointer"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                ))}
+
+                {/* Show voice note attached pill */}
+                {voiceNoteAttached && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-[#091424] border border-[#4fd1c5]/30 text-[11px] text-[#4fd1c5] font-mono">
+                    <Mic className="w-3 h-3 text-[#4fd1c5]" />
+                    <span>Voice Note ({recordingSeconds > 0 ? `${recordingSeconds}s` : 'Attached'})</span>
+                    <button
+                      type="button"
+                      onClick={handleRemoveVoiceNote}
+                      className="text-slate-400 hover:text-rose-400 ml-1 cursor-pointer"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                )}
+              </div>
+
+              {/* Live Triage Prediction Panel (Auto-updates dynamically via NLP) */}
+              <div className="bg-[#091424] border border-[#1a3454] rounded-xl p-4 space-y-3 mt-3">
+                <div className="flex items-center justify-between pb-2 border-b border-[#1a3454]/60">
+                  <div className="flex items-center gap-2">
+                    <Activity className="w-4 h-4 text-[#4fd1c5]" />
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-200">
+                      Live Triage Prediction Panel
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-mono text-[#4fd1c5] bg-[#4fd1c5]/10 px-2 py-0.5 rounded border border-[#4fd1c5]/30">
+                    Real-time NLP
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                  {/* PREDICTED DEPT */}
+                  <div className="bg-[#112238] p-2.5 rounded-lg border border-[#1a3454]">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#94a3b8] block">
+                      PREDICTED DEPT
+                    </span>
+                    <span className="text-xs font-bold text-white mt-1 block truncate">
+                      {nlpAnalysis.predictedDept}
+                    </span>
+                  </div>
+
+                  {/* CATEGORY */}
+                  <div className="bg-[#112238] p-2.5 rounded-lg border border-[#1a3454]">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#94a3b8] block">
+                      CATEGORY
+                    </span>
+                    <span className="text-xs font-bold text-slate-200 mt-1 block truncate">
+                      {nlpAnalysis.category}
+                    </span>
+                  </div>
+
+                  {/* PRIORITY TIER */}
+                  <div className="bg-[#112238] p-2.5 rounded-lg border border-[#1a3454]">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#94a3b8] block">
+                      PRIORITY TIER
+                    </span>
+                    <span
+                      className={`inline-block text-[11px] font-mono font-bold px-2 py-0.5 rounded-md mt-1 border ${getPriorityBadgeClass(
+                        nlpAnalysis.priorityTier
+                      )}`}
+                    >
+                      {nlpAnalysis.priorityTier}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Directive Note */}
+                <p className="text-[11px] text-[#94a3b8] flex items-center gap-1.5 pt-1">
+                  <ShieldCheck className="w-3.5 h-3.5 text-[#4fd1c5] shrink-0" />
+                  <span>ITSM router assigns target SLA & dedicated agent desk.</span>
+                </p>
+              </div>
+
+              {/* Submit Button */}
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={isSubmitting || !complaintText.trim()}
+                  className="w-full py-3 px-6 rounded-xl bg-[#4fd1c5] hover:bg-[#38b2ac] text-[#091424] font-bold text-sm shadow-[0_0_20px_rgba(79,209,197,0.3)] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  <Send className="w-4 h-4" />
+                  <span>{isSubmitting ? 'Submitting Complaint...' : 'Submit Complaint'}</span>
+                </button>
+              </div>
+            </form>
           </div>
-          <span className="text-[10px] font-mono text-[#4fd1c5] bg-[#4fd1c5]/10 px-2 py-1 rounded border border-[#4fd1c5]/30 hidden sm:inline-block">
-            Auto-Triage Active
-          </span>
         </div>
 
-        {/* Successful Submission Feedback Alert */}
-        {submissionSuccess && (
-          <div className="p-4 sm:p-5 rounded-xl bg-[#4fd1c5]/10 border border-[#4fd1c5]/40 text-white space-y-2.5">
+        {/* ==================================================
+            3. RIGHT CARD: "Your Ticket Overview"
+            - Total ticket counter
+            - Metric counter pills: Open (0), In Progress (0), Resolved (0)
+            - Empty state or list of filed tickets
+        ================================================== */}
+        <div className="lg:col-span-6 bg-[#112238] border border-[#1a3454] rounded-2xl p-6 sm:p-7 shadow-[0_0_35px_rgba(79,209,197,0.06)] flex flex-col">
+          {/* Card Header & Counters */}
+          <div className="pb-4 border-b border-[#1a3454] space-y-3">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-5 h-5 text-[#4fd1c5]" />
-                <span className="text-sm font-bold text-[#4fd1c5]">
-                  Complaint Registered: #{submissionSuccess.ticketId}
-                </span>
+              <div className="flex items-center gap-2.5">
+                <Clock className="w-5 h-5 text-[#4fd1c5]" />
+                <h2 className="text-base sm:text-lg font-bold text-white tracking-tight">
+                  Your Ticket Overview
+                </h2>
               </div>
-              <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-full bg-[#091424] text-teal-300 border border-[#4fd1c5]/30">
-                {submissionSuccess.priority}
+              {/* Total ticket counter */}
+              <span className="text-xs font-mono font-bold text-[#4fd1c5] bg-[#4fd1c5]/10 px-2.5 py-1 rounded-full border border-[#4fd1c5]/30">
+                Total Tickets: {customerTickets.length}
               </span>
             </div>
-            <p className="text-xs sm:text-sm text-slate-200 leading-relaxed font-sans bg-[#091424]/60 p-3 rounded-lg border border-[#1a3454]">
-              {submissionSuccess.summary}
-            </p>
-            <div className="text-xs text-[#94a3b8] flex flex-wrap items-center gap-3 pt-1">
-              <span>
-                Target Desk: <strong className="text-white">{submissionSuccess.desk}</strong>
+
+            {/* Metric Counter Pills: Open (0), In Progress (0), Resolved (0) */}
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <span className="px-2.5 py-1 rounded-full text-xs font-mono font-bold bg-blue-500/10 text-blue-300 border border-blue-500/30">
+                Open ({openCount})
               </span>
-              <span>·</span>
-              <span>
-                Assigned Lead: <strong className="text-white">{submissionSuccess.lead}</strong>
+              <span className="px-2.5 py-1 rounded-full text-xs font-mono font-bold bg-amber-500/10 text-amber-300 border border-amber-500/30">
+                In Progress ({inProgressCount})
+              </span>
+              <span className="px-2.5 py-1 rounded-full text-xs font-mono font-bold bg-teal-500/10 text-[#4fd1c5] border border-[#4fd1c5]/30">
+                Resolved ({resolvedCount})
               </span>
             </div>
           </div>
-        )}
 
-        <form onSubmit={handleSubmitComplaint} className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* Category dropdown */}
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-[#94a3b8] mb-1.5">
-                Category
-              </label>
-              <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="w-full bg-[#091424] border border-[#1a3454] focus:border-[#4fd1c5] focus:outline-hidden text-xs sm:text-sm text-white px-3.5 py-2.5 rounded-xl font-medium cursor-pointer"
-              >
-                <option value="Billing & Payroll Discrepancy">Billing & Payroll Discrepancy</option>
-                <option value="Technical & Infrastructure Outage">Technical & Infrastructure Outage</option>
-                <option value="Hardware & Logistics Shipping">Hardware & Logistics Shipping</option>
-                <option value="Account & General Customer Care">Account & General Customer Care</option>
-              </select>
-            </div>
-
-            {/* Priority dropdown */}
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-[#94a3b8] mb-1.5">
-                Priority
-              </label>
-              <select
-                value={priority}
-                onChange={(e) => setPriority(e.target.value as any)}
-                className="w-full bg-[#091424] border border-[#1a3454] focus:border-[#4fd1c5] focus:outline-hidden text-xs sm:text-sm text-white px-3.5 py-2.5 rounded-xl font-medium cursor-pointer"
-              >
-                <option value="P1_CRITICAL">P1_CRITICAL (Service Down / Major Financial Loss)</option>
-                <option value="P2_HIGH">P2_HIGH (High Impact / Impaired Workflow)</option>
-                <option value="P3_MEDIUM">P3_MEDIUM (Standard Issue / Viable Workaround)</option>
-                <option value="P4_LOW">P4_LOW (Minor Inquiry / General Feedback)</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Issue Subject */}
-          <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-[#94a3b8] mb-1.5">
-              Issue Subject
-            </label>
-            <input
-              type="text"
-              value={subject}
-              onChange={(e) => setSubject(e.target.value)}
-              placeholder="e.g. Critical 504 gateway timeout on payment API or Duplicate ERP transaction deduction"
-              required
-              className="w-full bg-[#091424] border border-[#1a3454] focus:border-[#4fd1c5] focus:outline-hidden text-xs sm:text-sm text-white px-3.5 py-2.5 rounded-xl placeholder:text-slate-500"
-            />
-          </div>
-
-          {/* Detailed Description */}
-          <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-[#94a3b8] mb-1.5">
-              Detailed Description
-            </label>
-            <textarea
-              rows={4}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Describe what occurred, impacted accounts or services, and any error codes or transaction IDs..."
-              required
-              className="w-full bg-[#091424] border border-[#1a3454] focus:border-[#4fd1c5] focus:outline-hidden text-xs sm:text-sm text-white p-3.5 rounded-xl placeholder:text-slate-500"
-            />
-          </div>
-
-          {/* Real-time NLP Triage Confirmation Indicator */}
-          <div className="p-3.5 rounded-xl bg-[#091424] border border-[#1a3454] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5">
-              <Sparkles className="w-4 h-4 text-[#4fd1c5] shrink-0" />
-              <div className="text-xs">
-                <span className="text-[#94a3b8]">Real-time NLP Auto-Assigned Target Desk: </span>
-                <strong className="text-white font-bold ml-1">{realTimeTriage.assignedDesk}</strong>
-                <span className="text-[#94a3b8] text-[11px] ml-2">
-                  (Desk Lead: {realTimeTriage.lead} · {realTimeTriage.agentId})
-                </span>
+          {/* Ticket Body / Empty State */}
+          <div className="flex-1 py-4 flex flex-col justify-center">
+            {customerTickets.length === 0 ? (
+              /* Empty State */
+              <div className="text-center py-12 px-4 space-y-3">
+                <div className="w-14 h-14 rounded-2xl bg-[#091424] border border-[#1a3454] flex items-center justify-center text-[#94a3b8] mx-auto shadow-xs">
+                  <Inbox className="w-7 h-7 stroke-[1.5]" />
+                </div>
+                <p className="text-sm text-slate-300 font-medium max-w-sm mx-auto leading-relaxed">
+                  No complaints filed yet. Submit your first complaint using the form on the left.
+                </p>
+                <p className="text-xs text-[#94a3b8]">
+                  All submitted tickets are tracked in real-time under ITIL v4 SLA resolution protocols.
+                </p>
               </div>
-            </div>
-
-            <span className="text-[10px] font-mono text-[#4fd1c5] bg-[#4fd1c5]/10 px-2 py-0.5 rounded border border-[#4fd1c5]/30 whitespace-nowrap">
-              {realTimeTriage.isDetected ? 'Auto-Detected via NLP' : 'Default Assigned'}
-            </span>
-          </div>
-
-          {/* Submit Button */}
-          <div className="pt-2 flex justify-end">
-            <button
-              type="submit"
-              disabled={isSubmitting || !subject.trim() || !description.trim()}
-              className="w-full sm:w-auto px-6 py-3 rounded-xl bg-[#4fd1c5] hover:bg-[#38b2ac] text-[#091424] font-bold text-xs sm:text-sm shadow-[0_0_20px_rgba(79,209,197,0.3)] transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
-            >
-              <Send className="w-4 h-4" />
-              <span>{isSubmitting ? 'Submitting & Triaging...' : 'Submit Complaint for Auto-Resolution →'}</span>
-            </button>
-          </div>
-        </form>
-      </div>
-
-      {/* ==================================================
-          3. MY ACTIVE TICKETS HISTORY TABLE
-      ================================================== */}
-      <div className="bg-[#112238] border border-[#1a3454] rounded-2xl shadow-[0_0_35px_rgba(79,209,197,0.06)] overflow-hidden">
-        <div className="p-4 sm:px-6 border-b border-[#1a3454] flex items-center justify-between">
-          <div>
-            <h3 className="text-sm font-bold text-white tracking-wide uppercase flex items-center gap-2">
-              <Clock className="w-4 h-4 text-[#4fd1c5]" />
-              My Active Tickets ({customerTickets.length})
-            </h3>
-            <p className="text-xs text-[#94a3b8] mt-0.5">
-              Live status tracking and audit updates for all incidents submitted under this account.
-            </p>
-          </div>
-          <span className="text-xs text-[#94a3b8] font-mono">Live Tracking</span>
-        </div>
-
-        {customerTickets.length === 0 ? (
-          <div className="p-8 text-center text-[#94a3b8] text-xs">
-            No complaints submitted yet. Use the form above to log an incident.
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-[#091424] text-[#94a3b8] font-bold uppercase tracking-wider text-[10px] border-b border-[#1a3454]">
-                <tr>
-                  <th className="py-3 px-4">TICKET ID</th>
-                  <th className="py-3 px-4 min-w-[200px]">ISSUE SUBJECT</th>
-                  <th className="py-3 px-4">TARGET DESK</th>
-                  <th className="py-3 px-4">PRIORITY</th>
-                  <th className="py-3 px-4">STATUS</th>
-                  <th className="py-3 px-4">SUBMITTED</th>
-                  <th className="py-3 px-4 text-right">DETAILS</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#1a3454]/60">
-                {customerTickets.map((t) => {
-                  const isExpanded = expandedTicketId === t.id;
-                  const prioStr =
-                    t.triageResult?.incident_record?.itil_priority ||
-                    t.triageResult?.priority ||
+            ) : (
+              /* Filed Tickets List */
+              <div className="space-y-3 overflow-y-auto max-h-[520px] pr-1">
+                {customerTickets.map((ticket) => {
+                  const isExpanded = expandedTicketId === ticket.id;
+                  const prioText =
+                    ticket.triageResult?.incident_record?.itil_priority ||
+                    ticket.triageResult?.ticket_metadata?.priority ||
+                    ticket.category ||
                     'P3 - MEDIUM';
                   const deskName =
-                    t.triageResult?.incident_record?.assigned_queue ||
-                    t.assignedTeam ||
+                    ticket.triageResult?.incident_record?.assigned_queue ||
+                    ticket.assignedTeam ||
                     'Support Operations';
 
                   return (
-                    <React.Fragment key={t.id}>
-                      <tr
-                        onClick={() => setExpandedTicketId(isExpanded ? null : t.id)}
-                        className={`cursor-pointer transition-colors ${
-                          isExpanded ? 'bg-[#152a45]' : 'hover:bg-[#132742]/70 bg-[#112238]/40'
-                        }`}
+                    <div
+                      key={ticket.id}
+                      className="bg-[#091424] border border-[#1a3454] hover:border-[#4fd1c5]/40 rounded-xl p-4 transition-all space-y-3"
+                    >
+                      <div
+                        onClick={() => setExpandedTicketId(isExpanded ? null : ticket.id)}
+                        className="flex items-start justify-between gap-3 cursor-pointer"
                       >
-                        <td className="py-3 px-4 font-mono font-bold text-[#4fd1c5] whitespace-nowrap">
-                          {t.id}
-                        </td>
-                        <td className="py-3 px-4">
-                          <span className="font-semibold text-white line-clamp-1">
-                            {t.subject ||
-                              t.triageResult?.incident_record?.incident_summary ||
-                              t.complaintText.slice(0, 50)}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4 text-slate-200 whitespace-nowrap">
-                          {deskName}
-                        </td>
-                        <td className="py-3 px-4 whitespace-nowrap">
+                        <div className="space-y-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-mono font-bold text-xs text-[#4fd1c5]">
+                              {ticket.id}
+                            </span>
+                            <span className="text-[11px] font-medium text-slate-300">
+                              {deskName}
+                            </span>
+                            <span
+                              className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border ${getPriorityBadgeClass(
+                                prioText
+                              )}`}
+                            >
+                              {prioText}
+                            </span>
+                          </div>
+                          <p className="text-xs font-semibold text-white line-clamp-1">
+                            {ticket.subject || ticket.complaintText.slice(0, 50)}
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
                           <span
-                            className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-mono font-bold border ${getPriorityBadge(
-                              prioStr
-                            )}`}
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border ${
+                              ticket.status === 'RESOLVED' || ticket.status === 'CLOSED'
+                                ? 'bg-teal-500/10 text-[#4fd1c5] border-[#4fd1c5]/30'
+                                : ticket.status === 'IN_PROGRESS'
+                                ? 'bg-amber-500/10 text-amber-300 border-amber-500/30'
+                                : 'bg-blue-500/10 text-blue-300 border-blue-500/30'
+                            }`}
                           >
-                            {prioStr}
+                            {ticket.status}
                           </span>
-                        </td>
-                        <td className="py-3 px-4 whitespace-nowrap">
-                          <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/10 text-blue-300 border border-blue-500/30 uppercase">
-                            {t.status}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4 text-[#94a3b8] whitespace-nowrap">
-                          {t.createdAt}
-                        </td>
-                        <td className="py-3 px-4 text-right">
                           <button
                             type="button"
-                            className="text-[#4fd1c5] hover:text-white transition-colors"
+                            className="text-[#94a3b8] hover:text-[#4fd1c5] transition-colors"
                           >
                             {isExpanded ? (
-                              <ChevronUp className="w-4 h-4 ml-auto" />
+                              <ChevronUp className="w-4 h-4" />
                             ) : (
-                              <ChevronDown className="w-4 h-4 ml-auto" />
+                              <ChevronDown className="w-4 h-4" />
                             )}
                           </button>
-                        </td>
-                      </tr>
+                        </div>
+                      </div>
 
-                      {/* Expanded Row */}
+                      {/* Expanded Ticket View */}
                       {isExpanded && (
-                        <tr className="bg-[#091424]">
-                          <td colSpan={7} className="p-4 border-b border-[#1a3454]">
-                            <div className="space-y-3">
-                              <div>
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-[#94a3b8] block mb-1">
-                                  Full Complaint Description:
-                                </span>
-                                <p className="text-xs text-slate-200 bg-[#112238] p-3 rounded-lg border border-[#1a3454] leading-relaxed">
-                                  {t.complaintText}
-                                </p>
-                              </div>
+                        <div className="pt-3 border-t border-[#1a3454] space-y-2.5 text-xs">
+                          <div>
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-[#94a3b8] block mb-1">
+                              Submitted Description:
+                            </span>
+                            <p className="text-slate-200 bg-[#112238] p-3 rounded-lg border border-[#1a3454] leading-relaxed whitespace-pre-wrap">
+                              {ticket.complaintText}
+                            </p>
+                          </div>
 
-                              {t.internalNotes && (
-                                <div>
-                                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#4fd1c5] block mb-1">
-                                    Resolution Update from Assigned Desk:
-                                  </span>
-                                  <p className="text-xs text-teal-200/90 bg-[#112238] p-3 rounded-lg border border-[#4fd1c5]/30 leading-relaxed">
-                                    {t.internalNotes}
-                                  </p>
-                                </div>
-                              )}
+                          {ticket.internalNotes && (
+                            <div>
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-[#4fd1c5] block mb-1">
+                                Service Desk Update:
+                              </span>
+                              <p className="text-teal-200 bg-[#112238] p-3 rounded-lg border border-[#4fd1c5]/30 leading-relaxed whitespace-pre-wrap">
+                                {ticket.internalNotes}
+                              </p>
                             </div>
-                          </td>
-                        </tr>
+                          )}
+
+                          <div className="flex items-center justify-between text-[11px] text-[#94a3b8] pt-1">
+                            <span>Logged: {ticket.createdAt}</span>
+                            <span>Target SLA: {ticket.slaRemainingHours ?? 4.0}h</span>
+                          </div>
+                        </div>
                       )}
-                    </React.Fragment>
+                    </div>
                   );
                 })}
-              </tbody>
-            </table>
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
     </div>
   );

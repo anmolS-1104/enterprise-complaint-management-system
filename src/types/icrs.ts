@@ -163,6 +163,7 @@ export interface TicketAuditEntry {
 export interface IncidentTicket {
   id: string;
   customerName: string;
+  customerEmail?: string;
   companyName: string;
   tier: 'Enterprise Platinum' | 'Enterprise Growth' | 'Standard Business';
   source: 'BMC DWP Portal' | 'Smart IT Console' | 'Zendesk' | 'Salesforce Service' | 'Jira Service Desk' | 'In-App Portal' | 'Email VIP';

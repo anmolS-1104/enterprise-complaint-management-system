@@ -554,7 +554,7 @@ export const CompanyCMSFrontPage: React.FC<CompanyCMSFrontPageProps> = ({
                     type="text"
                     value={clientName}
                     onChange={(e) => setClientName(e.target.value)}
-                    placeholder="Full Name"
+                    placeholder="Enter your full name"
                     autoComplete="off"
                     autoCorrect="off"
                     autoCapitalize="off"
@@ -568,9 +568,9 @@ export const CompanyCMSFrontPage: React.FC<CompanyCMSFrontPageProps> = ({
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-[#94a3b8] mb-1.5 flex items-center justify-between">
                   <span>Corporate Email Address</span>
-                  <span className="text-[10px] text-[#4fd1c5] font-mono">
-                    {customerSubView === 'REGISTER' ? '*Compulsory' : 'Strict Whitelist'}
-                  </span>
+                  {customerSubView === 'REGISTER' && (
+                    <span className="text-[10px] text-amber-400 font-mono">*Compulsory</span>
+                  )}
                 </label>
                 <div className="relative">
                   <Mail className="w-4 h-4 text-[#94a3b8] absolute left-3.5 top-3" />
@@ -578,7 +578,7 @@ export const CompanyCMSFrontPage: React.FC<CompanyCMSFrontPageProps> = ({
                     type="email"
                     value={clientEmail}
                     onChange={(e) => setClientEmail(e.target.value)}
-                    placeholder="authorized-email@client.com"
+                    placeholder="name@company.com"
                     autoComplete="off"
                     autoCorrect="off"
                     autoCapitalize="off"
@@ -601,7 +601,7 @@ export const CompanyCMSFrontPage: React.FC<CompanyCMSFrontPageProps> = ({
                       type="tel"
                       value={clientPhone}
                       onChange={(e) => setClientPhone(e.target.value)}
-                      placeholder="10-digit number"
+                      placeholder="10-digit mobile number"
                       maxLength={10}
                       autoComplete="off"
                       autoCorrect="off"
@@ -724,7 +724,7 @@ export const CompanyCMSFrontPage: React.FC<CompanyCMSFrontPageProps> = ({
                     type="email"
                     value={agentEmail}
                     onChange={(e) => setAgentEmail(e.target.value)}
-                    placeholder="agent-id@company.com"
+                    placeholder="name@company.com"
                     autoComplete="off"
                     autoCorrect="off"
                     autoCapitalize="off"
