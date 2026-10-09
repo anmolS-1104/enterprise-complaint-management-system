@@ -1,6 +1,7 @@
-import express, { Request, Response } from 'express';
+import express, { type Request, type Response } from 'express';
 import dotenv from 'dotenv';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { GoogleGenAI, Type } from '@google/genai';
 
@@ -621,8 +622,8 @@ app.post('/api/triage', async (req: Request, res: Response) => {
 
     if (aiClient) {
       try {
-        const response = await aiClient.models.generateContent({
-          model: 'gemini-3.8-flash',
+        const geminiPromise = aiClient.models.generateContent({
+          model: 'gemini-2.5-flash',
           contents: [
             {
               role: 'user',
@@ -640,6 +641,12 @@ app.post('/api/triage', async (req: Request, res: Response) => {
             temperature: 0.1,
           },
         });
+
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('AI inference timeout')), 3500)
+        );
+
+        const response: any = await Promise.race([geminiPromise, timeoutPromise]);
 
         rawJsonString = cleanJsonOutput(response.text || '');
         const parsed = JSON.parse(rawJsonString);
@@ -978,7 +985,11 @@ app.post('/api/triage/batch', async (req: Request, res: Response) => {
 
 // Static Vite Middleware
 async function setupApp() {
-  if (process.env.NODE_ENV === 'production') {
+  const isProduction =
+    process.env.NODE_ENV === 'production' ||
+    (process.env.NODE_ENV !== 'development' && fs.existsSync(path.join(__dirname, 'dist')));
+
+  if (isProduction) {
     app.use(express.static(path.join(__dirname, 'dist')));
     app.get('*', (_req: Request, res: Response) => {
       res.sendFile(path.join(__dirname, 'dist', 'index.html'));
